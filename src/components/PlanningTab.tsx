@@ -52,7 +52,7 @@ export function PlanningTab() {
             className="inline-flex items-center gap-1 text-[12px] font-normal text-[#5F7067] transition hover:text-[#143B2B]"
           >
             <BookOpen className="h-3.5 w-3.5 stroke-[1.5] text-[#B39258]" />
-            <span>Carnet</span>
+            <span>Journal</span>
           </button>
         </div>
 

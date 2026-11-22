@@ -4,7 +4,7 @@ import type { TabId } from '../types/trip';
 
 const NAV_ITEMS: { id: TabId; label: string; icon: typeof CalendarDays }[] = [
   { id: 'planning', label: 'Planning', icon: CalendarDays },
-  { id: 'carnet', label: 'Carnet', icon: BookOpen },
+  { id: 'carnet', label: 'Journal', icon: BookOpen },
   { id: 'activites', label: 'Activités', icon: Compass },
   { id: 'budget', label: 'Budget', icon: Wallet },
   { id: 'infos', label: 'Infos', icon: Info },

@@ -42,11 +42,11 @@ export function CarnetTab() {
     <section id="tab-panel-carnet" className="space-y-5">
       <DaySelector />
 
-      {/* Editorial Journal Page — no nested boxes, pure typography & breathing room */}
+      {/* Editorial Journal Page — authentic French cursive handwriting & breathing room */}
       <article className="ivy-card rounded-3xl px-5 py-6">
         <div className="flex items-center justify-between gap-2">
           <span className="text-[11px] font-normal uppercase tracking-[0.18em] text-[#B39258]">
-            Jour {day.dayNumber} sur 11
+            Journal · Jour {day.dayNumber} sur 11
           </span>
           <button
             type="button"
@@ -65,7 +65,7 @@ export function CarnetTab() {
           {entry.subtitle}
         </p>
 
-        <p className="font-margin mt-4 border-l border-[#B39258] pl-3.5 text-[21px] font-normal leading-snug text-[#8F7038]">
+        <p className="font-margin mt-4 border-l border-[#B39258] pl-3.5 text-[22px] font-normal leading-snug text-[#8F7038]">
           « {entry.marginQuote} »
         </p>
 
@@ -79,13 +79,13 @@ export function CarnetTab() {
           </div>
         )}
 
-        {/* Airy reading chapters separated by fine hairlines */}
+        {/* Airy reading chapters in Playwrite FR Moderne cursive */}
         <div className="mt-6 space-y-6 divide-y divide-[#F1ECE2]">
           <div className="pt-0">
             <h3 className="font-editorial text-[21px] font-medium text-[#143B2B]">
               Le Matin
             </h3>
-            <p className="font-hand mt-2 text-[15.5px] font-light leading-[1.85] text-[#143B2B]/90">
+            <p className="font-hand mt-2.5 text-[13.5px] font-light leading-[2.05] text-[#143B2B]/90">
               {entry.morning}
             </p>
           </div>
@@ -97,7 +97,7 @@ export function CarnetTab() {
             <p className="mt-0.5 text-[11.5px] font-normal tracking-wide text-[#8F7038]">
               {entry.lunchTitle}
             </p>
-            <p className="font-hand mt-2 text-[15.5px] font-light leading-[1.85] text-[#143B2B]/90">
+            <p className="font-hand mt-2.5 text-[13.5px] font-light leading-[2.05] text-[#143B2B]/90">
               {entry.lunch}
             </p>
           </div>
@@ -106,7 +106,7 @@ export function CarnetTab() {
             <h3 className="font-editorial text-[21px] font-medium text-[#143B2B]">
               L’Après-midi
             </h3>
-            <p className="font-hand mt-2 text-[15.5px] font-light leading-[1.85] text-[#143B2B]/90">
+            <p className="font-hand mt-2.5 text-[13.5px] font-light leading-[2.05] text-[#143B2B]/90">
               {entry.afternoon}
             </p>
           </div>
@@ -170,7 +170,7 @@ export function CarnetTab() {
           value={memoryText}
           onChange={(e) => handleNoteChange(e.target.value)}
           placeholder="Un mot d’Aya, un rire d’Adam, une belle adresse..."
-          className="notebook-paper font-hand mt-3 w-full resize-y rounded-2xl border border-[#ECE7DE] px-4 py-2 text-[15.5px] font-light text-[#143B2B] placeholder:text-[#5F7067]/45 focus:border-[#143B2B] focus:outline-none"
+          className="notebook-paper font-hand mt-3 w-full resize-y rounded-2xl border border-[#ECE7DE] px-4 py-2 text-[13.5px] font-light text-[#143B2B] placeholder:text-[#5F7067]/45 focus:border-[#143B2B] focus:outline-none"
         />
       </div>
     </section>

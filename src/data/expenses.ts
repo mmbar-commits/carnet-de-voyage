@@ -1,7 +1,24 @@
 import type { Expense } from '../types/trip';
 
+export const PAYMENT_METHODS = [
+  'Amex Mehdi',
+  'Revolut Mehdi',
+  'Revolut Aïda',
+  'Cash',
+] as const;
+
 export const INITIAL_EXPENSES: Expense[] = [
   // Dépenses globales
+  {
+    id: 'exp-global-flights',
+    dayId: 'global',
+    title: 'Billets d’avion Royal Air Maroc (AT800 / AT801)',
+    category: 'transports',
+    amountGbp: 618.96,
+    paid: true,
+    paymentMethod: 'Amex Mehdi',
+    note: '4 voyageurs · bagages cabine uniquement',
+  },
   {
     id: 'exp-global-tube',
     dayId: 'global',

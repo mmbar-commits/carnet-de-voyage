@@ -89,6 +89,8 @@ export interface BonusActivity {
   tags: ActivityTag[];
 }
 
+export type DisplayCurrency = 'GBP' | 'MAD';
+
 export interface Expense {
   id: string;
   dayId: string; // TripDay.id or 'global'
@@ -96,6 +98,7 @@ export interface Expense {
   category: ExpenseCategory;
   amountGbp: number;
   paid: boolean;
+  paymentMethod?: string;
   note?: string;
   linkedStepId?: string;
   isTowerHamletsBenefit?: boolean;

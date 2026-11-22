@@ -3,8 +3,9 @@ import { INITIAL_CHECKLIST } from '../data/infos';
 import { INITIAL_STEPS } from '../data/steps';
 import type { ExchangeRates, TripState } from '../types/trip';
 
-export const STATE_VERSION = 1;
+export const STATE_VERSION = 2;
 export const STORAGE_KEY = `londres-noel-2026:state:v${STATE_VERSION}`;
+const LEGACY_V1_KEY = 'londres-noel-2026:state:v1';
 export const FAMILY_CODE_KEY = 'londres-noel-2026:family-code';
 export const SELECTED_DAY_KEY = 'londres-noel-2026:selected-day';
 
@@ -42,15 +43,26 @@ export function isValidTripState(value: unknown): value is TripState {
 
 export function loadTripState(): TripState {
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const rawV2 = window.localStorage.getItem(STORAGE_KEY);
+    const raw = rawV2 ?? window.localStorage.getItem(LEGACY_V1_KEY);
     if (!raw) return createDefaultState();
     const parsed: unknown = JSON.parse(raw);
     if (!isValidTripState(parsed)) {
       return createDefaultState();
     }
+
+    let expenses = parsed.expenses;
+    if (!rawV2) {
+      const flightExp = INITIAL_EXPENSES.find((e) => e.id === 'exp-global-flights');
+      if (flightExp && !expenses.some((e) => e.id === flightExp.id)) {
+        expenses = [{ ...flightExp }, ...expenses];
+      }
+    }
+
     return {
       ...createDefaultState(),
       ...parsed,
+      expenses,
       version: STATE_VERSION,
       rates: {
         madPerGbp:

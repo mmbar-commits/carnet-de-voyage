@@ -52,10 +52,10 @@ export function InfosTab() {
   } = useTrip();
 
   const [openSections, setOpenSections] = useState<Record<SectionKey, boolean>>({
-    flights: true,
-    home: true,
+    flights: false,
+    home: false,
     th: false,
-    checklist: true,
+    checklist: false,
     sync: false,
     share: false,
     pwa: false,

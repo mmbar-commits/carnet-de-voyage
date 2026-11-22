@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Trash2, X } from 'lucide-react';
 import { TRIP_DAYS } from '../data/days';
+import { PAYMENT_METHODS } from '../data/expenses';
 import type { Expense, ExpenseCategory } from '../types/trip';
 
 interface ExpenseModalProps {
@@ -26,6 +27,9 @@ export function ExpenseModal({
   const [amountGbp, setAmountGbp] = useState(
     initialExpense ? String(initialExpense.amountGbp) : ''
   );
+  const [paymentMethod, setPaymentMethod] = useState(
+    initialExpense?.paymentMethod ?? ''
+  );
   const [paid, setPaid] = useState(initialExpense?.paid ?? false);
   const [note, setNote] = useState(initialExpense?.note ?? '');
 
@@ -40,6 +44,7 @@ export function ExpenseModal({
       category,
       amountGbp: Math.round(numeric * 100) / 100,
       paid,
+      paymentMethod: paymentMethod || undefined,
       note: note.trim() || undefined,
       linkedStepId: initialExpense?.linkedStepId,
       isTowerHamletsBenefit: initialExpense?.isTowerHamletsBenefit,
@@ -53,13 +58,13 @@ export function ExpenseModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="expense-modal-title"
-      className="fixed inset-0 z-50 flex items-end justify-center bg-[#143B2B]/40 p-0 backdrop-blur-xs sm:items-center sm:p-4"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-[#143B2B]/35 p-0 backdrop-blur-xs sm:items-center sm:p-4"
     >
-      <div className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl border border-[#E7E2D8] bg-[#FAF8F4] p-5 shadow-xl sm:rounded-3xl">
-        <div className="flex items-center justify-between border-b border-[#E7E2D8] pb-3">
+      <div className="max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-t-3xl border border-[#ECE7DE] bg-[#FAF8F4] p-5 shadow-xl sm:rounded-3xl">
+        <div className="flex items-center justify-between border-b border-[#ECE7DE] pb-3">
           <h2
             id="expense-modal-title"
-            className="font-editorial text-[24px] font-semibold text-[#143B2B]"
+            className="font-editorial text-[24px] font-normal text-[#143B2B]"
           >
             {initialExpense ? 'Modifier la dépense' : 'Nouvelle dépense'}
           </h2>
@@ -67,17 +72,17 @@ export function ExpenseModal({
             type="button"
             onClick={onClose}
             aria-label="Fermer"
-            className="flex h-8 w-8 items-center justify-center rounded-full border border-[#E7E2D8] bg-white text-[#143B2B]"
+            className="flex h-8 w-8 items-center justify-center rounded-full border border-[#ECE7DE] bg-white text-[#143B2B]"
           >
-            <X className="h-4 w-4" />
+            <X className="h-4 w-4 stroke-[1.5]" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="mt-4 space-y-3.5 text-[13px]">
+        <form onSubmit={handleSubmit} className="mt-4 space-y-3.5 text-[13px] font-light">
           <div>
             <label
               htmlFor="expense-day-input"
-              className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-[#4C6358]"
+              className="mb-1 block text-[11px] font-normal uppercase tracking-wider text-[#5F7067]"
             >
               Journée
             </label>
@@ -85,9 +90,9 @@ export function ExpenseModal({
               id="expense-day-input"
               value={dayId}
               onChange={(e) => setDayId(e.target.value)}
-              className="w-full rounded-xl border border-[#E7E2D8] bg-white px-3 py-2.5 text-[#143B2B] focus:border-[#143B2B] focus:outline-none"
+              className="w-full rounded-xl border border-[#ECE7DE] bg-white px-3 py-2.5 font-normal text-[#143B2B] focus:border-[#143B2B] focus:outline-none"
             >
-              <option value="global">Dépenses globales (hors jour précis)</option>
+              <option value="global">Dépenses globales</option>
               {TRIP_DAYS.map((d) => (
                 <option key={d.id} value={d.id}>
                   J{d.dayNumber} · {d.dateShort} ({d.weekdayShort})
@@ -99,7 +104,7 @@ export function ExpenseModal({
           <div>
             <label
               htmlFor="expense-title-input"
-              className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-[#4C6358]"
+              className="mb-1 block text-[11px] font-normal uppercase tracking-wider text-[#5F7067]"
             >
               Libellé *
             </label>
@@ -110,7 +115,7 @@ export function ExpenseModal({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Ex. Chocolats chauds à Covent Garden"
-              className="w-full rounded-xl border border-[#E7E2D8] bg-white px-3 py-2.5 text-[#143B2B] focus:border-[#143B2B] focus:outline-none"
+              className="w-full rounded-xl border border-[#ECE7DE] bg-white px-3 py-2.5 font-normal text-[#143B2B] focus:border-[#143B2B] focus:outline-none"
             />
           </div>
 
@@ -118,7 +123,7 @@ export function ExpenseModal({
             <div>
               <label
                 htmlFor="expense-amount-input"
-                className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-[#4C6358]"
+                className="mb-1 block text-[11px] font-normal uppercase tracking-wider text-[#5F7067]"
               >
                 Montant (£ GBP) *
               </label>
@@ -127,18 +132,18 @@ export function ExpenseModal({
                 type="number"
                 required
                 min="0"
-                step="0.5"
+                step="0.01"
                 value={amountGbp}
                 onChange={(e) => setAmountGbp(e.target.value)}
-                placeholder="25"
-                className="w-full rounded-xl border border-[#E7E2D8] bg-white px-3 py-2.5 text-[#143B2B] tabular-nums focus:border-[#143B2B] focus:outline-none"
+                placeholder="25.00"
+                className="w-full rounded-xl border border-[#ECE7DE] bg-white px-3 py-2.5 font-normal text-[#143B2B] tabular-nums focus:border-[#143B2B] focus:outline-none"
               />
             </div>
 
             <div>
               <label
                 htmlFor="expense-category-input"
-                className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-[#4C6358]"
+                className="mb-1 block text-[11px] font-normal uppercase tracking-wider text-[#5F7067]"
               >
                 Catégorie
               </label>
@@ -146,7 +151,7 @@ export function ExpenseModal({
                 id="expense-category-input"
                 value={category}
                 onChange={(e) => setCategory(e.target.value as ExpenseCategory)}
-                className="w-full rounded-xl border border-[#E7E2D8] bg-white px-3 py-2.5 text-[#143B2B] focus:border-[#143B2B] focus:outline-none"
+                className="w-full rounded-xl border border-[#ECE7DE] bg-white px-3 py-2.5 font-normal text-[#143B2B] focus:border-[#143B2B] focus:outline-none"
               >
                 <option value="activites">Activités</option>
                 <option value="repas">Repas & Courses</option>
@@ -158,8 +163,30 @@ export function ExpenseModal({
 
           <div>
             <label
+              htmlFor="expense-payment-input"
+              className="mb-1 block text-[11px] font-normal uppercase tracking-wider text-[#5F7067]"
+            >
+              Moyen de paiement
+            </label>
+            <select
+              id="expense-payment-input"
+              value={paymentMethod}
+              onChange={(e) => setPaymentMethod(e.target.value)}
+              className="w-full rounded-xl border border-[#ECE7DE] bg-white px-3 py-2.5 font-normal text-[#143B2B] focus:border-[#143B2B] focus:outline-none"
+            >
+              <option value="">Non précisé</option>
+              {PAYMENT_METHODS.map((method) => (
+                <option key={method} value={method}>
+                  {method}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label
               htmlFor="expense-note-input"
-              className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-[#4C6358]"
+              className="mb-1 block text-[11px] font-normal uppercase tracking-wider text-[#5F7067]"
             >
               Note (optionnel)
             </label>
@@ -168,19 +195,19 @@ export function ExpenseModal({
               type="text"
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="Ex. Payé par carte sans frais"
-              className="w-full rounded-xl border border-[#E7E2D8] bg-white px-3 py-2.5 text-[#143B2B] focus:border-[#143B2B] focus:outline-none"
+              placeholder="Ex. Payé sans frais"
+              className="w-full rounded-xl border border-[#ECE7DE] bg-white px-3 py-2.5 font-normal text-[#143B2B] focus:border-[#143B2B] focus:outline-none"
             />
           </div>
 
-          <label className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-[#E7E2D8] bg-white px-3.5 py-2.5">
+          <label className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-[#ECE7DE] bg-white px-3.5 py-2.5">
             <input
               type="checkbox"
               checked={paid}
               onChange={(e) => setPaid(e.target.checked)}
               className="h-4 w-4 accent-[#143B2B]"
             />
-            <span className="font-medium text-[#143B2B]">
+            <span className="font-normal text-[#143B2B]">
               Dépense déjà payée
             </span>
           </label>
@@ -193,9 +220,9 @@ export function ExpenseModal({
                   onDelete();
                   onClose();
                 }}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-[#7C2D36]/30 bg-[#FDF3F4] px-3.5 py-2.5 text-[12.5px] font-semibold text-[#7C2D36]"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-[#7C2D36]/25 bg-[#FCF5F5] px-3.5 py-2.5 text-[12px] font-normal text-[#7C2D36]"
               >
-                <Trash2 className="h-3.5 w-3.5" />
+                <Trash2 className="h-3.5 w-3.5 stroke-[1.5]" />
                 Supprimer
               </button>
             ) : (
@@ -206,14 +233,14 @@ export function ExpenseModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-xl border border-[#E7E2D8] bg-white px-4 py-2.5 text-[12.5px] font-semibold text-[#4C6358]"
+                className="rounded-xl border border-[#ECE7DE] bg-white px-4 py-2.5 text-[12px] font-light text-[#5F7067]"
               >
                 Annuler
               </button>
               <button
                 id="save-expense-submit"
                 type="submit"
-                className="rounded-xl bg-[#143B2B] px-5 py-2.5 text-[12.5px] font-semibold text-[#FAF8F4] hover:bg-[#1E543E]"
+                className="rounded-xl bg-[#143B2B] px-5 py-2.5 text-[12px] font-normal text-[#FAF8F4]"
               >
                 Enregistrer
               </button>

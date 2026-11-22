@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { TRIP_DAYS } from '../data/days';
 import { useTrip } from '../store/TripContext';
-import type { Expense, ExpenseCategory } from '../types/trip';
+import type { DisplayCurrency, Expense, ExpenseCategory } from '../types/trip';
 import { ExpenseModal } from './ExpenseModal';
 
 const CATEGORY_LABELS: Record<ExpenseCategory, string> = {
@@ -54,12 +54,13 @@ export function BudgetTab() {
     updateRates,
   } = useTrip();
 
+  const [currency, setCurrency] = useState<DisplayCurrency>('GBP');
   const [categoryFilter, setCategoryFilter] = useState<ExpenseCategory | 'all'>(
     'all'
   );
   const [showRatesEditor, setShowRatesEditor] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(() => ({
-    global: false,
+    global: true,
     [selectedDayId]: true,
   }));
   const [modalDayId, setModalDayId] = useState<string | null>(null);
@@ -68,6 +69,12 @@ export function BudgetTab() {
   );
 
   const { madPerGbp, eurPerGbp } = state.rates;
+
+  const formatPrimary = (gbp: number) =>
+    currency === 'GBP' ? formatGbp(gbp) : formatMad(gbp, madPerGbp);
+
+  const formatSecondary = (gbp: number) =>
+    currency === 'GBP' ? formatMad(gbp, madPerGbp) : formatGbp(gbp);
 
   const filteredExpenses = useMemo(() => {
     if (categoryFilter === 'all') return state.expenses;
@@ -152,15 +159,41 @@ export function BudgetTab() {
           </h2>
         </div>
 
-        <button
-          type="button"
-          id="toggle-rates-btn"
-          onClick={() => setShowRatesEditor((v) => !v)}
-          className="inline-flex items-center gap-1.5 rounded-full border border-[#ECE7DE] bg-white px-3 py-1.5 text-[11.5px] font-light text-[#143B2B]"
-        >
-          <SlidersHorizontal className="h-3.5 w-3.5 stroke-[1.5] text-[#B39258]" />
-          <span>Taux</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {/* GBP / MAD Toggle (GBP default) */}
+          <div
+            role="group"
+            aria-label="Devise d'affichage"
+            className="inline-flex rounded-full border border-[#ECE7DE] bg-white p-0.5"
+          >
+            {(['GBP', 'MAD'] as const).map((code) => (
+              <button
+                key={code}
+                id={`currency-toggle-${code}`}
+                type="button"
+                aria-pressed={currency === code}
+                onClick={() => setCurrency(code)}
+                className={`rounded-full px-2.5 py-1 text-[11px] transition ${
+                  currency === code
+                    ? 'bg-[#143B2B] font-medium text-[#FAF8F4]'
+                    : 'font-light text-[#5F7067]'
+                }`}
+              >
+                {code === 'GBP' ? '£ GBP' : 'MAD'}
+              </button>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            id="toggle-rates-btn"
+            onClick={() => setShowRatesEditor((v) => !v)}
+            aria-label="Régler les taux de change"
+            className="flex h-8 w-8 items-center justify-center rounded-full border border-[#ECE7DE] bg-white text-[#143B2B]"
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5 stroke-[1.5] text-[#B39258]" />
+          </button>
+        </div>
       </div>
 
       {showRatesEditor && (
@@ -212,7 +245,7 @@ export function BudgetTab() {
         </div>
       )}
 
-      {/* Serene, luminous summary card */}
+      {/* Luminous summary card */}
       <div className="ivy-card rounded-3xl px-5 py-5">
         <div className="flex items-baseline justify-between gap-2">
           <div>
@@ -221,16 +254,16 @@ export function BudgetTab() {
             </p>
             <p
               id="budget-total-gbp"
-              className="mt-1 text-[34px] font-light leading-none tracking-tight tabular-nums text-[#143B2B]"
+              className="mt-1 text-[32px] font-light leading-none tracking-tight tabular-nums text-[#143B2B]"
             >
-              {formatGbp(totals.total)}
+              {formatPrimary(totals.total)}
             </p>
           </div>
           <div className="text-right tabular-nums">
-            <p className="text-[14px] font-normal text-[#143B2B]">
-              {formatMad(totals.total, madPerGbp)}
+            <p className="text-[13.5px] font-normal text-[#143B2B]">
+              {formatSecondary(totals.total)}
             </p>
-            <p className="mt-0.5 text-[12px] font-light text-[#5F7067]">
+            <p className="mt-0.5 text-[11.5px] font-light text-[#5F7067]">
               {formatEur(totals.total, eurPerGbp)}
             </p>
           </div>
@@ -239,10 +272,17 @@ export function BudgetTab() {
         <div className="mt-5">
           <div className="flex items-center justify-between text-[11.5px] font-light text-[#5F7067]">
             <span>
-              Payé : <span className="font-normal text-[#143B2B]">{formatGbp(totals.paid)}</span>
+              Payé :{' '}
+              <span className="font-normal text-[#143B2B]">
+                {formatPrimary(totals.paid)}
+              </span>{' '}
+              ({totals.paidPct} %)
             </span>
             <span>
-              Reste : <span className="font-normal text-[#143B2B]">{formatGbp(totals.remaining)}</span>
+              Reste :{' '}
+              <span className="font-normal text-[#143B2B]">
+                {formatPrimary(totals.remaining)}
+              </span>
             </span>
           </div>
           <div className="mt-2 h-[3px] overflow-hidden rounded-full bg-[#ECE7DE]">
@@ -253,11 +293,10 @@ export function BudgetTab() {
           </div>
         </div>
 
-        {/* Understated Tower Hamlets savings line */}
         <div className="mt-4 flex items-center gap-2 border-t border-[#F2EDE4] pt-3.5 text-[12px] font-light text-[#83662F]">
           <Award className="h-3.5 w-3.5 shrink-0 stroke-[1.5] text-[#B39258]" />
           <span>
-            ~£{Math.round(totals.savedTh)} économisés ({formatMad(totals.savedTh, madPerGbp)}) · Résident Tower Hamlets
+            ~{formatPrimary(Math.round(totals.savedTh))} économisés · Résident Tower Hamlets
           </span>
         </div>
       </div>
@@ -334,10 +373,10 @@ export function BudgetTab() {
                 <div className="flex shrink-0 items-center gap-2.5">
                   <div className="text-right tabular-nums">
                     <p className="text-[14px] font-medium text-[#143B2B]">
-                      {formatGbp(group.subtotalGbp)}
+                      {formatPrimary(group.subtotalGbp)}
                     </p>
                     <p className="text-[10.5px] font-light text-[#5F7067]">
-                      {formatMad(group.subtotalGbp, madPerGbp)}
+                      {formatSecondary(group.subtotalGbp)}
                     </p>
                   </div>
                   {isOpen ? (
@@ -389,12 +428,17 @@ export function BudgetTab() {
                               >
                                 {item.title}
                               </p>
-                              <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] font-light text-[#5F7067]">
+                              <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] font-light text-[#5F7067]">
                                 <span>{item.paid ? 'Payé' : 'Prévu'}</span>
+                                {item.paymentMethod && (
+                                  <span className="text-[#143B2B]">
+                                    · {item.paymentMethod}
+                                  </span>
+                                )}
                                 {item.linkedStepId && <span>· Planning</span>}
                                 {item.isTowerHamletsBenefit && item.savedGbp && (
                                   <span className="text-[#83662F]">
-                                    · -£{Math.round(item.savedGbp)} TH
+                                    · -{formatPrimary(Math.round(item.savedGbp))} TH
                                   </span>
                                 )}
                               </div>
@@ -404,10 +448,10 @@ export function BudgetTab() {
                           <div className="flex shrink-0 items-center gap-2">
                             <div className="text-right tabular-nums">
                               <p className="text-[13px] font-medium text-[#143B2B]">
-                                {formatGbp(item.amountGbp)}
+                                {formatPrimary(item.amountGbp)}
                               </p>
                               <p className="text-[10.5px] font-light text-[#5F7067]">
-                                {formatMad(item.amountGbp, madPerGbp)}
+                                {formatSecondary(item.amountGbp)}
                               </p>
                             </div>
                             <button

@@ -183,26 +183,51 @@ export function InfosTab() {
         </button>
 
         {openSections.flights && (
-          <div className="space-y-3 border-t border-[#F2EDE4] px-4 py-3.5 text-[13px] font-light">
-            <div className="space-y-0.5">
-              <p className="text-[11px] font-normal uppercase tracking-wider text-[#8F7038]">
-                Aller · AT800 · Mar. 22 déc.
-              </p>
-              <p className="text-[#143B2B]">
-                Casablanca <span className="font-medium tabular-nums">13h05</span> → Heathrow{' '}
-                <span className="font-medium tabular-nums">15h25</span>
-              </p>
-            </div>
-            <div className="space-y-0.5 border-t border-[#F2EDE4] pt-2.5">
-              <p className="text-[11px] font-normal uppercase tracking-wider text-[#8F7038]">
-                Retour · AT801 · Ven. 1er jan.
-              </p>
-              <p className="text-[#143B2B]">
-                Heathrow <span className="font-medium tabular-nums">17h15</span> → Casablanca{' '}
-                <span className="font-medium tabular-nums">21h30</span>
-              </p>
-            </div>
-            <p className="text-[12px] text-[#5F7067]">{FLIGHT_INFO.baggageNote}.</p>
+          <div className="space-y-3.5 border-t border-[#F2EDE4] px-4 py-3.5 text-[13px] font-light">
+            {[
+              { label: 'Aller', f: FLIGHT_INFO.outbound },
+              { label: 'Retour', f: FLIGHT_INFO.inbound },
+            ].map(({ label, f }, idx) => (
+              <div
+                key={f.code}
+                className={`space-y-1 ${idx > 0 ? 'border-t border-[#F2EDE4] pt-3' : ''}`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[11px] font-normal uppercase tracking-wider text-[#8F7038]">
+                    {label} · {f.code} · {f.date}
+                  </p>
+                  <a
+                    href={f.statusUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex shrink-0 items-center gap-1 text-[11px] font-normal text-[#143B2B] underline decoration-[#B39258]/70 underline-offset-2"
+                  >
+                    <span>Suivi</span>
+                    <ExternalLink className="h-3 w-3 stroke-[1.5] text-[#B39258]" />
+                  </a>
+                </div>
+                <p className="text-[#143B2B]">
+                  {f.from}{' '}
+                  <span className="font-medium tabular-nums">{f.departure}</span> →{' '}
+                  {f.to}{' '}
+                  <span className="font-medium tabular-nums">{f.arrival}</span>
+                </p>
+                <p className="text-[12px] text-[#5F7067]">
+                  Terminaux :{' '}
+                  <span className="font-normal text-[#143B2B]">
+                    {f.fromTerminal}
+                  </span>{' '}
+                  →{' '}
+                  <span className="font-normal text-[#143B2B]">
+                    {f.toTerminal}
+                  </span>
+                </p>
+                <p className="text-[11.5px] text-[#5F7067]">{f.gateNote}</p>
+              </div>
+            ))}
+            <p className="border-t border-[#F2EDE4] pt-2.5 text-[12px] text-[#5F7067]">
+              {FLIGHT_INFO.baggageNote}.
+            </p>
           </div>
         )}
       </article>

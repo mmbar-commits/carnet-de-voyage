@@ -176,27 +176,42 @@ export function TripProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     setSyncStatus((prev) => ({ ...prev, mode: 'syncing', familyCode, errorMessage: undefined }));
 
-    pullRemoteState(familyCode)
-      .then((remote) => {
-        if (cancelled) return;
-        if (remote && remote.updatedAt > stateRef.current.updatedAt) {
-          applyingRemoteRef.current = true;
-          setState(remote);
-        }
-        setSyncStatus({
-          mode: 'synced',
-          familyCode,
-          lastSyncedAt: new Date().toISOString(),
+    const syncFromRemote = () => {
+      pullRemoteState(familyCode)
+        .then((remote) => {
+          if (cancelled) return;
+          if (remote && remote.updatedAt > stateRef.current.updatedAt) {
+            applyingRemoteRef.current = true;
+            setState(remote);
+          }
+          setSyncStatus({
+            mode: 'synced',
+            familyCode,
+            lastSyncedAt: new Date().toISOString(),
+          });
+        })
+        .catch((err: unknown) => {
+          if (cancelled) return;
+          setSyncStatus({
+            mode: 'error',
+            familyCode,
+            errorMessage:
+              err instanceof Error ? err.message : 'Connexion Supabase indisponible',
+          });
         });
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        setSyncStatus({
-          mode: 'error',
-          familyCode,
-          errorMessage: err instanceof Error ? err.message : 'Connexion Supabase indisponible',
-        });
-      });
+    };
+
+    syncFromRemote();
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        syncFromRemote();
+      }
+    };
+    const handleOnline = () => syncFromRemote();
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('online', handleOnline);
 
     const unsubscribe = subscribeToFamilySync(familyCode, (remote) => {
       if (remote.updatedAt > stateRef.current.updatedAt) {
@@ -212,6 +227,8 @@ export function TripProvider({ children }: { children: ReactNode }) {
 
     return () => {
       cancelled = true;
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('online', handleOnline);
       unsubscribe();
     };
   }, [familyCode]);

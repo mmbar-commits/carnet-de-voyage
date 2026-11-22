@@ -9,12 +9,20 @@ import {
   Plus,
   SlidersHorizontal,
 } from 'lucide-react';
-import { TRIP_DAYS } from '../data/days';
+import { DAY_MAP, TRIP_DAYS } from '../data/days';
+import { PAYMENT_METHODS } from '../data/expenses';
 import { useTrip } from '../store/TripContext';
 import type { DisplayCurrency, Expense, ExpenseCategory } from '../types/trip';
 import { ExpenseModal } from './ExpenseModal';
 
 const CATEGORY_LABELS: Record<ExpenseCategory, string> = {
+  activites: 'Activités',
+  repas: 'Repas & Courses',
+  transports: 'Transports',
+  shopping: 'Shopping & Extras',
+};
+
+const CATEGORY_SHORT_LABELS: Record<ExpenseCategory, string> = {
   activites: 'Activités',
   repas: 'Repas',
   transports: 'Transports',
@@ -39,14 +47,9 @@ function formatMad(amountGbp: number, rate: number): string {
   return `${Math.round(amountGbp * rate).toLocaleString('fr-FR')} MAD`;
 }
 
-function formatEur(amountGbp: number, rate: number): string {
-  return `${Math.round(amountGbp * rate).toLocaleString('fr-FR')} €`;
-}
-
 export function BudgetTab() {
   const {
     state,
-    selectedDayId,
     toggleExpensePaid,
     addExpense,
     updateExpense,
@@ -59,10 +62,16 @@ export function BudgetTab() {
     'all'
   );
   const [showRatesEditor, setShowRatesEditor] = useState(false);
-  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(() => ({
-    global: true,
-    [selectedDayId]: true,
-  }));
+
+  // All dropdowns closed by default
+  const [expandedDays, setExpandedDays] = useState<Record<string, boolean>>({});
+  const [expandedCategories, setExpandedCategories] = useState<
+    Record<string, boolean>
+  >({});
+  const [expandedPayments, setExpandedPayments] = useState<
+    Record<string, boolean>
+  >({});
+
   const [modalDayId, setModalDayId] = useState<string | null>(null);
   const [editingExpense, setEditingExpense] = useState<Expense | undefined>(
     undefined
@@ -103,7 +112,7 @@ export function BudgetTab() {
     };
   }, [filteredExpenses, state.expenses]);
 
-  const groups = useMemo(() => {
+  const dayGroups = useMemo(() => {
     const list: {
       id: string;
       badge: string;
@@ -133,22 +142,140 @@ export function BudgetTab() {
     }));
   }, [filteredExpenses]);
 
-  const toggleGroup = (id: string) => {
-    setExpandedGroups((prev) => ({ ...prev, [id]: !prev[id] }));
+  const categoryGroups = useMemo(() => {
+    return ALL_CATEGORIES.map((cat) => {
+      const items = state.expenses.filter((e) => e.category === cat);
+      return {
+        id: cat,
+        title: CATEGORY_LABELS[cat],
+        items,
+        subtotalGbp: items.reduce((sum, i) => sum + i.amountGbp, 0),
+      };
+    });
+  }, [state.expenses]);
+
+  const paymentGroups = useMemo(() => {
+    const known = new Set<string>(PAYMENT_METHODS);
+    const extras = new Set<string>();
+    for (const exp of state.expenses) {
+      if (exp.paymentMethod && !known.has(exp.paymentMethod)) {
+        extras.add(exp.paymentMethod);
+      }
+    }
+
+    const orderedMethods = [...PAYMENT_METHODS, ...Array.from(extras)];
+    const groups = orderedMethods.map((method) => {
+      const items = state.expenses.filter((e) => e.paymentMethod === method);
+      return {
+        id: method,
+        title: method,
+        items,
+        subtotalGbp: items.reduce((sum, i) => sum + i.amountGbp, 0),
+      };
+    });
+
+    const unspecifiedItems = state.expenses.filter((e) => !e.paymentMethod);
+    groups.push({
+      id: 'non_precise',
+      title: 'Non précisé',
+      items: unspecifiedItems,
+      subtotalGbp: unspecifiedItems.reduce((sum, i) => sum + i.amountGbp, 0),
+    });
+
+    return groups;
+  }, [state.expenses]);
+
+  const allDaysExpanded = dayGroups.every((g) => Boolean(expandedDays[g.id]));
+  const setAllDaysExpanded = (expanded: boolean) => {
+    const next: Record<string, boolean> = {};
+    dayGroups.forEach((g) => {
+      next[g.id] = expanded;
+    });
+    setExpandedDays(next);
   };
 
-  const allExpanded = groups.every((g) => Boolean(expandedGroups[g.id]));
+  const renderExpenseRow = (
+    item: Expense,
+    options?: { showDay?: boolean; showCategory?: boolean; keyPrefix?: string }
+  ) => {
+    const dayObj = item.dayId !== 'global' ? DAY_MAP[item.dayId] : undefined;
+    const dayLabel = dayObj ? `J${dayObj.dayNumber} · ${dayObj.dateShort}` : 'Global';
 
-  const setAllExpanded = (expanded: boolean) => {
-    const next: Record<string, boolean> = { global: expanded };
-    TRIP_DAYS.forEach((d) => {
-      next[d.id] = expanded;
-    });
-    setExpandedGroups(next);
+    return (
+      <li
+        key={`${options?.keyPrefix ?? 'day'}-${item.id}`}
+        id={options?.keyPrefix ? undefined : `expense-row-${item.id}`}
+        className="flex items-start justify-between gap-3 py-3 first:pt-1 last:pb-1"
+      >
+        <div className="flex min-w-0 items-start gap-2.5">
+          <button
+            type="button"
+            id={options?.keyPrefix ? undefined : `toggle-paid-${item.id}`}
+            onClick={() => toggleExpensePaid(item.id)}
+            aria-label={item.paid ? 'Marquer comme prévu' : 'Marquer comme payé'}
+            className="mt-0.5 shrink-0 text-[#143B2B]"
+          >
+            {item.paid ? (
+              <CheckCircle2 className="h-4 w-4 fill-[#143B2B] text-[#FAF8F4]" />
+            ) : (
+              <Circle className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+            )}
+          </button>
+
+          <div className="min-w-0">
+            <p
+              className={`text-[13px] font-normal leading-snug text-[#143B2B] ${
+                item.paid ? 'line-through opacity-60' : ''
+              }`}
+            >
+              {item.title}
+            </p>
+            <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] font-light text-[#5F7067]">
+              <span>{item.paid ? 'Payé' : 'Prévu'}</span>
+              {options?.showDay && <span>· {dayLabel}</span>}
+              {options?.showCategory && (
+                <span>· {CATEGORY_SHORT_LABELS[item.category]}</span>
+              )}
+              {item.paymentMethod && (
+                <span className="text-[#143B2B]">· {item.paymentMethod}</span>
+              )}
+              {item.isTowerHamletsBenefit && item.savedGbp && (
+                <span className="text-[#83662F]">
+                  · -{formatPrimary(Math.round(item.savedGbp))} TH
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-2">
+          <div className="text-right tabular-nums">
+            <p className="text-[13px] font-medium text-[#143B2B]">
+              {formatPrimary(item.amountGbp)}
+            </p>
+            <p className="text-[10.5px] font-light text-[#5F7067]">
+              {formatSecondary(item.amountGbp)}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setEditingExpense(item);
+              setModalDayId(item.dayId);
+            }}
+            aria-label="Modifier la dépense"
+            className="p-1 text-[#5F7067]/70 hover:text-[#143B2B]"
+          >
+            <Pencil className="h-3.5 w-3.5 stroke-[1.5]" />
+          </button>
+        </div>
+      </li>
+    );
   };
 
   return (
     <section id="tab-panel-budget" className="space-y-5">
+      {/* Header + GBP/MAD Toggle */}
       <div className="flex items-end justify-between gap-2 pt-2">
         <div>
           <span className="text-[11px] font-normal uppercase tracking-[0.16em] text-[#B39258]">
@@ -160,7 +287,6 @@ export function BudgetTab() {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* GBP / MAD Toggle (GBP default) */}
           <div
             role="group"
             aria-label="Devise d'affichage"
@@ -188,7 +314,7 @@ export function BudgetTab() {
             type="button"
             id="toggle-rates-btn"
             onClick={() => setShowRatesEditor((v) => !v)}
-            aria-label="Régler les taux de change"
+            aria-label="Régler le taux GBP/MAD"
             className="flex h-8 w-8 items-center justify-center rounded-full border border-[#ECE7DE] bg-white text-[#143B2B]"
           >
             <SlidersHorizontal className="h-3.5 w-3.5 stroke-[1.5] text-[#B39258]" />
@@ -196,56 +322,33 @@ export function BudgetTab() {
         </div>
       </div>
 
+      {/* Single GBP -> MAD Rate Editor (no EUR) */}
       {showRatesEditor && (
-        <div className="ivy-card grid grid-cols-2 gap-3 rounded-2xl p-4">
-          <div>
-            <label
-              htmlFor="rate-mad-input"
-              className="mb-1 block text-[11px] font-light text-[#5F7067]"
-            >
-              1 £ en MAD
-            </label>
-            <input
-              id="rate-mad-input"
-              type="number"
-              step="0.05"
-              min="1"
-              value={madPerGbp}
-              onChange={(e) => {
-                const val = Number(e.target.value);
-                if (!Number.isNaN(val) && val > 0) {
-                  updateRates({ madPerGbp: val, eurPerGbp });
-                }
-              }}
-              className="w-full rounded-xl border border-[#ECE7DE] bg-[#FAF8F4] px-3 py-2 text-[13px] font-normal tabular-nums text-[#143B2B]"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="rate-eur-input"
-              className="mb-1 block text-[11px] font-light text-[#5F7067]"
-            >
-              1 £ en € EUR
-            </label>
-            <input
-              id="rate-eur-input"
-              type="number"
-              step="0.01"
-              min="0.1"
-              value={eurPerGbp}
-              onChange={(e) => {
-                const val = Number(e.target.value);
-                if (!Number.isNaN(val) && val > 0) {
-                  updateRates({ madPerGbp, eurPerGbp: val });
-                }
-              }}
-              className="w-full rounded-xl border border-[#ECE7DE] bg-[#FAF8F4] px-3 py-2 text-[13px] font-normal tabular-nums text-[#143B2B]"
-            />
-          </div>
+        <div className="ivy-card flex items-center justify-between gap-3 rounded-2xl px-4 py-3.5">
+          <label
+            htmlFor="rate-mad-input"
+            className="text-[12.5px] font-light text-[#5F7067]"
+          >
+            Taux de change (1 £ GBP en MAD)
+          </label>
+          <input
+            id="rate-mad-input"
+            type="number"
+            step="0.05"
+            min="1"
+            value={madPerGbp}
+            onChange={(e) => {
+              const val = Number(e.target.value);
+              if (!Number.isNaN(val) && val > 0) {
+                updateRates({ madPerGbp: val, eurPerGbp });
+              }
+            }}
+            className="w-24 rounded-xl border border-[#ECE7DE] bg-[#FAF8F4] px-3 py-1.5 text-right text-[13px] font-normal tabular-nums text-[#143B2B]"
+          />
         </div>
       )}
 
-      {/* Luminous summary card */}
+      {/* Luminous Summary Card (GBP & MAD only — zero EUR) */}
       <div className="ivy-card rounded-3xl px-5 py-5">
         <div className="flex items-baseline justify-between gap-2">
           <div>
@@ -260,11 +363,8 @@ export function BudgetTab() {
             </p>
           </div>
           <div className="text-right tabular-nums">
-            <p className="text-[13.5px] font-normal text-[#143B2B]">
+            <p className="text-[13.5px] font-normal text-[#5F7067]">
               {formatSecondary(totals.total)}
-            </p>
-            <p className="mt-0.5 text-[11.5px] font-light text-[#5F7067]">
-              {formatEur(totals.total, eurPerGbp)}
             </p>
           </div>
         </div>
@@ -301,7 +401,7 @@ export function BudgetTab() {
         </div>
       </div>
 
-      {/* Category Filter Pills */}
+      {/* Category Filter Pills for Day List */}
       <div className="no-scrollbar flex gap-2 overflow-x-auto pb-0.5">
         <button
           type="button"
@@ -325,28 +425,28 @@ export function BudgetTab() {
                 : 'border-[#ECE7DE] bg-white font-light text-[#143B2B]'
             }`}
           >
-            {CATEGORY_LABELS[cat]}
+            {CATEGORY_SHORT_LABELS[cat]}
           </button>
         ))}
       </div>
 
-      {/* Chronological Day List */}
-      <div className="flex items-center justify-between pt-1">
-        <h3 className="font-editorial text-[22px] font-normal text-[#143B2B]">
-          Par journée
-        </h3>
-        <button
-          type="button"
-          onClick={() => setAllExpanded(!allExpanded)}
-          className="text-[11.5px] font-light text-[#8F7038]"
-        >
-          {allExpanded ? 'Tout replier' : 'Tout déplier'}
-        </button>
-      </div>
-
+      {/* 1. Par journée */}
       <div className="space-y-2.5">
-        {groups.map((group) => {
-          const isOpen = Boolean(expandedGroups[group.id]);
+        <div className="flex items-center justify-between pt-1">
+          <h3 className="font-editorial text-[22px] font-normal text-[#143B2B]">
+            Par journée
+          </h3>
+          <button
+            type="button"
+            onClick={() => setAllDaysExpanded(!allDaysExpanded)}
+            className="text-[11.5px] font-light text-[#8F7038]"
+          >
+            {allDaysExpanded ? 'Tout replier' : 'Tout déplier'}
+          </button>
+        </div>
+
+        {dayGroups.map((group) => {
+          const isOpen = Boolean(expandedDays[group.id]);
 
           return (
             <div
@@ -357,7 +457,9 @@ export function BudgetTab() {
               <button
                 type="button"
                 id={`budget-group-toggle-${group.id}`}
-                onClick={() => toggleGroup(group.id)}
+                onClick={() =>
+                  setExpandedDays((prev) => ({ ...prev, [group.id]: !prev[group.id] }))
+                }
                 aria-expanded={isOpen}
                 className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left"
               >
@@ -395,79 +497,7 @@ export function BudgetTab() {
                     </p>
                   ) : (
                     <ul className="divide-y divide-[#F2EDE4]">
-                      {group.items.map((item) => (
-                        <li
-                          key={item.id}
-                          id={`expense-row-${item.id}`}
-                          className="flex items-start justify-between gap-3 py-3 first:pt-1 last:pb-1"
-                        >
-                          <div className="flex min-w-0 items-start gap-2.5">
-                            <button
-                              type="button"
-                              id={`toggle-paid-${item.id}`}
-                              onClick={() => toggleExpensePaid(item.id)}
-                              aria-label={
-                                item.paid
-                                  ? 'Marquer comme prévu'
-                                  : 'Marquer comme payé'
-                              }
-                              className="mt-0.5 shrink-0 text-[#143B2B]"
-                            >
-                              {item.paid ? (
-                                <CheckCircle2 className="h-4 w-4 fill-[#143B2B] text-[#FAF8F4]" />
-                              ) : (
-                                <Circle className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
-                              )}
-                            </button>
-
-                            <div className="min-w-0">
-                              <p
-                                className={`text-[13px] font-normal leading-snug text-[#143B2B] ${
-                                  item.paid ? 'line-through opacity-60' : ''
-                                }`}
-                              >
-                                {item.title}
-                              </p>
-                              <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] font-light text-[#5F7067]">
-                                <span>{item.paid ? 'Payé' : 'Prévu'}</span>
-                                {item.paymentMethod && (
-                                  <span className="text-[#143B2B]">
-                                    · {item.paymentMethod}
-                                  </span>
-                                )}
-                                {item.linkedStepId && <span>· Planning</span>}
-                                {item.isTowerHamletsBenefit && item.savedGbp && (
-                                  <span className="text-[#83662F]">
-                                    · -{formatPrimary(Math.round(item.savedGbp))} TH
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="flex shrink-0 items-center gap-2">
-                            <div className="text-right tabular-nums">
-                              <p className="text-[13px] font-medium text-[#143B2B]">
-                                {formatPrimary(item.amountGbp)}
-                              </p>
-                              <p className="text-[10.5px] font-light text-[#5F7067]">
-                                {formatSecondary(item.amountGbp)}
-                              </p>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditingExpense(item);
-                                setModalDayId(item.dayId);
-                              }}
-                              aria-label="Modifier la dépense"
-                              className="p-1 text-[#5F7067]/70 hover:text-[#143B2B]"
-                            >
-                              <Pencil className="h-3.5 w-3.5 stroke-[1.5]" />
-                            </button>
-                          </div>
-                        </li>
-                      ))}
+                      {group.items.map((item) => renderExpenseRow(item))}
                     </ul>
                   )}
 
@@ -490,6 +520,159 @@ export function BudgetTab() {
         })}
       </div>
 
+      {/* 2. Par catégorie */}
+      <div id="budget-section-categories" className="space-y-2.5 pt-2">
+        <h3 className="font-editorial text-[22px] font-normal text-[#143B2B]">
+          Par catégorie
+        </h3>
+
+        {categoryGroups.map((group) => {
+          const isOpen = Boolean(expandedCategories[group.id]);
+
+          return (
+            <div
+              key={group.id}
+              id={`budget-cat-group-${group.id}`}
+              className="ivy-card overflow-hidden rounded-2xl"
+            >
+              <button
+                type="button"
+                id={`budget-cat-toggle-${group.id}`}
+                onClick={() =>
+                  setExpandedCategories((prev) => ({
+                    ...prev,
+                    [group.id]: !prev[group.id],
+                  }))
+                }
+                aria-expanded={isOpen}
+                className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left"
+              >
+                <div className="min-w-0">
+                  <span className="font-editorial text-[19px] font-normal text-[#143B2B]">
+                    {group.title}
+                  </span>
+                  <span className="ml-2 text-[11px] font-light text-[#5F7067]">
+                    ({group.items.length})
+                  </span>
+                </div>
+
+                <div className="flex shrink-0 items-center gap-2.5">
+                  <div className="text-right tabular-nums">
+                    <p className="text-[14px] font-medium text-[#143B2B]">
+                      {formatPrimary(group.subtotalGbp)}
+                    </p>
+                    <p className="text-[10.5px] font-light text-[#5F7067]">
+                      {formatSecondary(group.subtotalGbp)}
+                    </p>
+                  </div>
+                  {isOpen ? (
+                    <ChevronUp className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+                  )}
+                </div>
+              </button>
+
+              {isOpen && (
+                <div className="border-t border-[#F2EDE4] bg-[#FDFCF9] px-4 py-3">
+                  {group.items.length === 0 ? (
+                    <p className="py-1 text-center text-[12px] font-light text-[#5F7067]">
+                      Aucune dépense
+                    </p>
+                  ) : (
+                    <ul className="divide-y divide-[#F2EDE4]">
+                      {group.items.map((item) =>
+                        renderExpenseRow(item, {
+                          showDay: true,
+                          keyPrefix: `cat-${group.id}`,
+                        })
+                      )}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* 3. Par moyen de paiement */}
+      <div id="budget-section-payments" className="space-y-2.5 pt-2">
+        <h3 className="font-editorial text-[22px] font-normal text-[#143B2B]">
+          Par moyen de paiement
+        </h3>
+
+        {paymentGroups.map((group) => {
+          const isOpen = Boolean(expandedPayments[group.id]);
+
+          return (
+            <div
+              key={group.id}
+              id={`budget-pay-group-${group.id}`}
+              className="ivy-card overflow-hidden rounded-2xl"
+            >
+              <button
+                type="button"
+                id={`budget-pay-toggle-${group.id}`}
+                onClick={() =>
+                  setExpandedPayments((prev) => ({
+                    ...prev,
+                    [group.id]: !prev[group.id],
+                  }))
+                }
+                aria-expanded={isOpen}
+                className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left"
+              >
+                <div className="min-w-0">
+                  <span className="font-editorial text-[19px] font-normal text-[#143B2B]">
+                    {group.title}
+                  </span>
+                  <span className="ml-2 text-[11px] font-light text-[#5F7067]">
+                    ({group.items.length})
+                  </span>
+                </div>
+
+                <div className="flex shrink-0 items-center gap-2.5">
+                  <div className="text-right tabular-nums">
+                    <p className="text-[14px] font-medium text-[#143B2B]">
+                      {formatPrimary(group.subtotalGbp)}
+                    </p>
+                    <p className="text-[10.5px] font-light text-[#5F7067]">
+                      {formatSecondary(group.subtotalGbp)}
+                    </p>
+                  </div>
+                  {isOpen ? (
+                    <ChevronUp className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+                  )}
+                </div>
+              </button>
+
+              {isOpen && (
+                <div className="border-t border-[#F2EDE4] bg-[#FDFCF9] px-4 py-3">
+                  {group.items.length === 0 ? (
+                    <p className="py-1 text-center text-[12px] font-light text-[#5F7067]">
+                      Aucune dépense
+                    </p>
+                  ) : (
+                    <ul className="divide-y divide-[#F2EDE4]">
+                      {group.items.map((item) =>
+                        renderExpenseRow(item, {
+                          showDay: true,
+                          showCategory: true,
+                          keyPrefix: `pay-${group.id}`,
+                        })
+                      )}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
       {modalDayId && (
         <ExpenseModal
           defaultDayId={modalDayId}
@@ -504,7 +687,7 @@ export function BudgetTab() {
             } else {
               addExpense(data);
             }
-            setExpandedGroups((prev) => ({ ...prev, [data.dayId]: true }));
+            setExpandedDays((prev) => ({ ...prev, [data.dayId]: true }));
           }}
           onDelete={
             editingExpense ? () => deleteExpense(editingExpense.id) : undefined

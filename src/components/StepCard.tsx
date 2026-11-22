@@ -6,6 +6,7 @@ import {
   ChevronDown,
   ChevronUp,
   MapPin,
+  Navigation,
   Pencil,
   TrainFront,
 } from 'lucide-react';
@@ -38,6 +39,23 @@ const BOOKING_META: Record<
   },
 };
 
+function buildMapsUrl(step: TripStep): string {
+  const raw = step.location.trim();
+  const segments = raw.split('→').map((s) => s.trim()).filter(Boolean);
+  let target = segments.length > 1 ? segments[segments.length - 1] : raw;
+
+  // If the destination is a flight arrival outside London (e.g. Casablanca), route to Heathrow instead
+  if (/casablanca|cmn/i.test(target)) {
+    target = 'London Heathrow Airport, UK';
+  } else if (!/london|londres|heathrow|uk/i.test(target)) {
+    target = `${target}, London, UK`;
+  }
+
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
+    target
+  )}&travelmode=transit`;
+}
+
 interface StepCardProps {
   step: TripStep;
   index: number;
@@ -63,6 +81,7 @@ export function StepCard({
 }: StepCardProps) {
   const [expanded, setExpanded] = useState(false);
   const booking = BOOKING_META[step.bookingStatus];
+  const mapsUrl = buildMapsUrl(step);
 
   return (
     <article
@@ -121,14 +140,28 @@ export function StepCard({
         {step.title}
       </h3>
 
-      {/* Single quiet location line */}
-      <p className="mt-1.5 flex items-center gap-1.5 text-[12.5px] font-light text-[#5F7067]">
-        <MapPin className="h-3.5 w-3.5 shrink-0 stroke-[1.5] text-[#B39258]" />
-        <span className="truncate">{step.location}</span>
-      </p>
+      {/* Location line + compact Maps button */}
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <p className="flex min-w-0 items-center gap-1.5 text-[12.5px] font-light text-[#5F7067]">
+          <MapPin className="h-3.5 w-3.5 shrink-0 stroke-[1.5] text-[#B39258]" />
+          <span className="truncate">{step.location}</span>
+        </p>
+
+        <a
+          id={`maps-btn-${step.id}`}
+          href={mapsUrl}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={`Ouvrir ${step.title} dans Google Maps`}
+          className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[#ECE7DE] bg-[#FAF8F4] px-2.5 py-1 text-[11px] font-normal text-[#143B2B] transition hover:border-[#B39258]"
+        >
+          <Navigation className="h-3 w-3 stroke-[1.6] text-[#B39258]" />
+          <span>Maps</span>
+        </a>
+      </div>
 
       {/* Compact meta bar + expand trigger */}
-      <div className="mt-3 flex items-center justify-between gap-2 pt-2 border-t border-[#F2EDE4]">
+      <div className="mt-3 flex items-center justify-between gap-2 border-t border-[#F2EDE4] pt-2">
         <div className="flex flex-wrap items-center gap-2 text-[11.5px] font-light text-[#5F7067]">
           <span>Aya · {step.ayaRating}</span>
           <span className="text-[#D4CBB9]">•</span>

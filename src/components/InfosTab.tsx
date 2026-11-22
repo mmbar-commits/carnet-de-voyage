@@ -477,6 +477,20 @@ export function InfosTab() {
                 </button>
               )}
             </div>
+            {supabaseReady && syncStatus.mode === 'synced' && syncStatus.lastSyncedAt && (
+              <p className="text-[11.5px] font-normal text-[#143B2B]">
+                ✓ Synchronisé à{' '}
+                {new Date(syncStatus.lastSyncedAt).toLocaleTimeString('fr-FR', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </p>
+            )}
+            {supabaseReady && syncStatus.mode === 'error' && (
+              <p className="rounded-xl bg-[#FCF5F5] px-3 py-2 text-[11.5px] text-[#7C2D36]">
+                Erreur de synchro : {syncStatus.errorMessage || 'vérifiez la table trip_sync dans Supabase'}
+              </p>
+            )}
             {!supabaseReady && (
               <div>
                 <button

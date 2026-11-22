@@ -22,6 +22,7 @@ import type {
 } from '../types/trip';
 import {
   createDefaultState,
+  DEFAULT_UPDATED_AT,
   isValidTripState,
   loadFamilyCode,
   loadSelectedDay,
@@ -131,7 +132,12 @@ export function TripProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     saveTripState(state);
 
-    if (!isSupabaseConfigured() || !familyCode || applyingRemoteRef.current) {
+    if (
+      !isSupabaseConfigured() ||
+      !familyCode ||
+      applyingRemoteRef.current ||
+      state.updatedAt === DEFAULT_UPDATED_AT
+    ) {
       applyingRemoteRef.current = false;
       return;
     }
@@ -178,11 +184,13 @@ export function TripProvider({ children }: { children: ReactNode }) {
 
     const syncFromRemote = () => {
       pullRemoteState(familyCode)
-        .then((remote) => {
+        .then(async (remote) => {
           if (cancelled) return;
           if (remote && remote.updatedAt > stateRef.current.updatedAt) {
             applyingRemoteRef.current = true;
             setState(remote);
+          } else if (!remote && stateRef.current.updatedAt !== DEFAULT_UPDATED_AT) {
+            await pushRemoteState(familyCode, stateRef.current);
           }
           setSyncStatus({
             mode: 'synced',

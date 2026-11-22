@@ -14,10 +14,12 @@ export const DEFAULT_RATES: ExchangeRates = {
   eurPerGbp: 1.18,
 };
 
+export const DEFAULT_UPDATED_AT = '1970-01-01T00:00:00.000Z';
+
 export function createDefaultState(): TripState {
   return {
     version: STATE_VERSION,
-    updatedAt: new Date().toISOString(),
+    updatedAt: DEFAULT_UPDATED_AT,
     steps: INITIAL_STEPS.map((step) => ({ ...step })),
     memories: {},
     expenses: INITIAL_EXPENSES.map((expense) => ({ ...expense })),

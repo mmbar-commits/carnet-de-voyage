@@ -13,7 +13,7 @@ function TripShell() {
   return (
     <div className="min-h-dvh bg-[#FAF8F4] text-[#143B2B]">
       <Header />
-      <main className="mx-auto max-w-lg px-4 pt-2 pb-28">
+      <main className="mx-auto max-w-md px-5 pt-1 pb-28">
         {activeTab === 'planning' && <PlanningTab />}
         {activeTab === 'carnet' && <CarnetTab />}
         {activeTab === 'activites' && <ActivitesTab />}

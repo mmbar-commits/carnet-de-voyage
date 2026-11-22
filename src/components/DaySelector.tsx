@@ -19,13 +19,13 @@ export function DaySelector() {
   }, [selectedDayId]);
 
   return (
-    <div className="sticky top-[65px] z-20 -mx-4 border-b border-[#E7E2D8] bg-[#FAF8F4]/95 px-4 py-2.5 backdrop-blur-md">
+    <div className="sticky top-[57px] z-20 -mx-5 border-b border-[#ECE7DE]/90 bg-[#FAF8F4]/95 px-5 py-2.5 backdrop-blur-md">
       <div
         ref={scrollRef}
         id="day-selector-strip"
         role="tablist"
         aria-label="Sélecteur des 11 jours du séjour"
-        className="no-scrollbar flex gap-2 overflow-x-auto pb-0.5"
+        className="no-scrollbar flex gap-2 overflow-x-auto"
       >
         {TRIP_DAYS.map((day) => {
           const isSelected = day.id === selectedDayId;
@@ -43,35 +43,28 @@ export function DaySelector() {
               aria-selected={isSelected}
               type="button"
               onClick={() => setSelectedDayId(day.id)}
-              className={`relative flex min-w-[70px] shrink-0 flex-col items-center rounded-xl border px-2.5 py-2 transition-all ${
+              className={`relative flex min-w-[62px] shrink-0 flex-col items-center rounded-xl border px-2 py-2 transition-all ${
                 isSelected
-                  ? 'border-[#143B2B] bg-[#143B2B] text-[#FAF8F4] shadow-sm'
-                  : 'border-[#E7E2D8] bg-white text-[#143B2B] hover:border-[#B39258]'
+                  ? 'border-[#143B2B] bg-[#143B2B] text-[#FAF8F4]'
+                  : 'border-[#ECE7DE] bg-white/80 text-[#143B2B] hover:border-[#B39258]/70'
               }`}
             >
               <span
-                className={`text-[10px] font-semibold uppercase tracking-wider ${
-                  isSelected ? 'text-[#D7BD8A]' : 'text-[#4C6358]'
+                className={`text-[9.5px] font-normal uppercase tracking-widest ${
+                  isSelected ? 'text-[#D7BD8A]' : 'text-[#5F7067]'
                 }`}
               >
                 {day.weekdayShort}
               </span>
-              <span className="mt-0.5 text-[13px] font-bold tabular-nums leading-tight">
+              <span className="mt-0.5 text-[12.5px] font-medium tabular-nums leading-tight">
                 {day.dateShort}
               </span>
-              <div className="mt-1 flex items-center gap-1">
-                <span
-                  className={`text-[9.5px] font-medium ${
-                    isSelected ? 'text-[#FAF8F4]/75' : 'text-[#4C6358]/80'
-                  }`}
-                >
-                  J{day.dayNumber}
-                </span>
+              <div className="mt-1 flex h-1.5 items-center gap-1">
                 {day.isCritical && (
                   <span
                     title="Jour à contrainte calendaire"
                     className={`h-1.5 w-1.5 rounded-full ${
-                      isSelected ? 'bg-[#F0A4AD]' : 'bg-[#7C2D36]'
+                      isSelected ? 'bg-[#E9A6AE]' : 'bg-[#7C2D36]/80'
                     }`}
                   />
                 )}

@@ -16,9 +16,9 @@ export function BottomNav() {
   return (
     <nav
       aria-label="Navigation principale"
-      className="safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-[#E7E2D8] bg-white/95 backdrop-blur-md"
+      className="safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-[#ECE7DE] bg-[#FAF8F4]/95 backdrop-blur-md"
     >
-      <div className="mx-auto grid max-w-lg grid-cols-5 px-1.5 pt-1.5 pb-1">
+      <div className="mx-auto grid max-w-md grid-cols-5 px-2 pt-2 pb-1">
         {NAV_ITEMS.map(({ id, label, icon: Icon }) => {
           const isActive = activeTab === id;
           return (
@@ -28,29 +28,29 @@ export function BottomNav() {
               type="button"
               onClick={() => {
                 setActiveTab(id);
-                window.scrollTo({ top: 0, behavior: 'smooth' });
+                window.scrollTo({ top: 0 });
               }}
               aria-current={isActive ? 'page' : undefined}
-              className={`relative flex flex-col items-center justify-center gap-1 rounded-xl py-1.5 transition-colors ${
+              className={`relative flex flex-col items-center justify-center gap-1 rounded-xl py-1 transition-colors ${
                 isActive
                   ? 'text-[#143B2B]'
-                  : 'text-[#4C6358]/75 hover:text-[#143B2B]'
+                  : 'text-[#5F7067]/75 hover:text-[#143B2B]'
               }`}
             >
               {isActive && (
                 <span
                   aria-hidden="true"
-                  className="absolute -top-1.5 h-[2.5px] w-7 rounded-full bg-[#B39258]"
+                  className="absolute -top-2 h-[2px] w-6 rounded-full bg-[#B39258]"
                 />
               )}
               <Icon
-                className={`h-[19px] w-[19px] transition-transform ${
-                  isActive ? 'stroke-[2.2] scale-105' : 'stroke-[1.7]'
+                className={`h-[18px] w-[18px] ${
+                  isActive ? 'stroke-[1.9]' : 'stroke-[1.4]'
                 }`}
               />
               <span
                 className={`text-[10.5px] tracking-wide ${
-                  isActive ? 'font-bold text-[#143B2B]' : 'font-medium'
+                  isActive ? 'font-medium text-[#143B2B]' : 'font-light'
                 }`}
               >
                 {label}

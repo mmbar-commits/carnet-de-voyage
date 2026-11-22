@@ -2,16 +2,16 @@
 
 @theme {
   --color-ivory: #FAF8F4;
-  --color-ivory-warm: #F3EFE7;
+  --color-ivory-warm: #F4F0E8;
   --color-surface: #FFFFFF;
-  --color-border-ivy: #E7E2D8;
+  --color-border-ivy: #ECE7DE;
   --color-ivy: #143B2B;
   --color-ivy-light: #1E543E;
-  --color-ivy-muted: #4C6358;
+  --color-ivy-muted: #5F7067;
   --color-brass: #B39258;
-  --color-brass-soft: #F7F1E4;
+  --color-brass-soft: #F8F3E9;
   --color-burgundy: #7C2D36;
-  --color-burgundy-soft: #FDF3F4;
+  --color-burgundy-soft: #FCF5F5;
 
   --font-sans: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-serif: "Cormorant Garamond", Georgia, "Times New Roman", serif;
@@ -24,6 +24,9 @@
     background-color: #FAF8F4;
     color: #143B2B;
     font-family: var(--font-sans);
+    font-weight: 400;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     -webkit-tap-highlight-color: transparent;
   }
 
@@ -57,24 +60,24 @@
   scrollbar-width: none;
 }
 
-/* Subtle lined notebook texture for the Carnet memories block */
+/* Delicate lined paper for Carnet memories */
 .notebook-paper {
-  background-color: #FCFBF8;
+  background-color: #FDFCF9;
   background-image: repeating-linear-gradient(
     to bottom,
     transparent,
-    transparent 31px,
-    rgba(179, 146, 88, 0.16) 31px,
-    rgba(179, 146, 88, 0.16) 32px
+    transparent 33px,
+    rgba(179, 146, 88, 0.14) 33px,
+    rgba(179, 146, 88, 0.14) 34px
   );
-  line-height: 32px;
+  line-height: 34px;
 }
 
-/* Editorial Ivy hairline accent */
+/* Airy, ultra-refined Ivy card */
 .ivy-card {
   background-color: #FFFFFF;
-  border: 1px solid #E7E2D8;
-  box-shadow: 0 1px 2px rgba(20, 59, 43, 0.03), 0 6px 20px -12px rgba(20, 59, 43, 0.08);
+  border: 1px solid #ECE7DE;
+  box-shadow: 0 1px 2px rgba(20, 59, 43, 0.02);
 }
 
 .safe-bottom {

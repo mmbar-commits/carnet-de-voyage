@@ -1,0 +1,82 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ivory: #FAF8F4;
+  --color-ivory-warm: #F3EFE7;
+  --color-surface: #FFFFFF;
+  --color-border-ivy: #E7E2D8;
+  --color-ivy: #143B2B;
+  --color-ivy-light: #1E543E;
+  --color-ivy-muted: #4C6358;
+  --color-brass: #B39258;
+  --color-brass-soft: #F7F1E4;
+  --color-burgundy: #7C2D36;
+  --color-burgundy-soft: #FDF3F4;
+
+  --font-sans: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-serif: "Cormorant Garamond", Georgia, "Times New Roman", serif;
+  --font-hand: "Kalam", cursive;
+  --font-margin: "Caveat", cursive;
+}
+
+@layer base {
+  html {
+    background-color: #FAF8F4;
+    color: #143B2B;
+    font-family: var(--font-sans);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    background-color: #FAF8F4;
+    color: #143B2B;
+    overflow-x: clip;
+  }
+}
+
+.font-editorial {
+  font-family: var(--font-serif);
+}
+
+.font-hand {
+  font-family: var(--font-hand);
+}
+
+.font-margin {
+  font-family: var(--font-margin);
+}
+
+/* Smooth horizontal scrollbar hiding for the 11-day ribbon while keeping native touch scroll */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Subtle lined notebook texture for the Carnet memories block */
+.notebook-paper {
+  background-color: #FCFBF8;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent,
+    transparent 31px,
+    rgba(179, 146, 88, 0.16) 31px,
+    rgba(179, 146, 88, 0.16) 32px
+  );
+  line-height: 32px;
+}
+
+/* Editorial Ivy hairline accent */
+.ivy-card {
+  background-color: #FFFFFF;
+  border: 1px solid #E7E2D8;
+  box-shadow: 0 1px 2px rgba(20, 59, 43, 0.03), 0 6px 20px -12px rgba(20, 59, 43, 0.08);
+}
+
+.safe-bottom {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+}

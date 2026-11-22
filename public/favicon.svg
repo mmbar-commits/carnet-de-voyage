@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#143B2B"/>
+  <rect x="40" y="40" width="432" height="432" rx="64" fill="none" stroke="#B39258" stroke-width="5" opacity="0.88"/>
+  <rect x="56" y="56" width="400" height="400" rx="50" fill="none" stroke="#B39258" stroke-width="2" opacity="0.5"/>
+  <text x="256" y="238" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-weight="600" font-size="112" letter-spacing="14" fill="#FAF8F4">LDN</text>
+  <line x1="146" y1="274" x2="232" y2="274" stroke="#B39258" stroke-width="3"/>
+  <polygon points="256,264 266,274 256,284 246,274" fill="#B39258"/>
+  <line x1="280" y1="274" x2="366" y2="274" stroke="#B39258" stroke-width="3"/>
+  <text x="256" y="368" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-weight="500" font-size="94" letter-spacing="12" fill="#D7BD8A">26</text>
+</svg>

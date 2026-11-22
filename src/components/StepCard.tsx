@@ -9,6 +9,7 @@ import {
   Navigation,
   Pencil,
   TrainFront,
+  UtensilsCrossed,
 } from 'lucide-react';
 import { TRIP_DAYS } from '../data/days';
 import type { BookingStatus, TripStep } from '../types/trip';
@@ -44,7 +45,6 @@ function buildMapsUrl(step: TripStep): string {
   const segments = raw.split('→').map((s) => s.trim()).filter(Boolean);
   let target = segments.length > 1 ? segments[segments.length - 1] : raw;
 
-  // If the destination is a flight arrival outside London (e.g. Casablanca), route to Heathrow instead
   if (/casablanca|cmn/i.test(target)) {
     target = 'London Heathrow Airport, UK';
   } else if (!/london|londres|heathrow|uk/i.test(target)) {
@@ -82,21 +82,36 @@ export function StepCard({
   const [expanded, setExpanded] = useState(false);
   const booking = BOOKING_META[step.bookingStatus];
   const mapsUrl = buildMapsUrl(step);
+  const isMeal = step.kind === 'repas';
 
   return (
     <article
       id={`step-card-${step.id}`}
-      className={`ivy-card rounded-2xl px-4 py-4 transition-opacity ${
-        step.done ? 'bg-[#FDFCF9] opacity-65' : ''
-      }`}
+      data-kind={isMeal ? 'repas' : 'activite'}
+      className={`rounded-2xl border px-4 transition-opacity ${
+        isMeal
+          ? 'border-[#E6D4B8] bg-[#FBF5EA] py-3.5'
+          : 'ivy-card py-4'
+      } ${step.done ? 'opacity-60' : ''}`}
     >
-      {/* Top quiet row: time + clickable booking pill + minimal check circle */}
+      {/* Top quiet row: time + meal/booking pill + minimal check circle */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[12px] font-normal tabular-nums text-[#8F7038]">
+          <span
+            className={`text-[12px] font-normal tabular-nums ${
+              isMeal ? 'text-[#8C6226]' : 'text-[#8F7038]'
+            }`}
+          >
             {step.timeStart}
             {step.timeEnd ? ` – ${step.timeEnd}` : ''}
           </span>
+
+          {isMeal && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#EFE1C6] px-2.5 py-0.5 text-[10.5px] font-medium text-[#7A531C]">
+              <UtensilsCrossed className="h-2.5 w-2.5 stroke-[1.7]" />
+              <span>Repas</span>
+            </span>
+          )}
 
           <button
             type="button"
@@ -123,8 +138,12 @@ export function StepCard({
           aria-label={step.done ? 'Marquer comme à faire' : 'Marquer comme fait'}
           className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border transition ${
             step.done
-              ? 'border-[#143B2B] bg-[#143B2B] text-[#FAF8F4]'
-              : 'border-[#DDD6C9] bg-white text-transparent hover:border-[#143B2B]'
+              ? isMeal
+                ? 'border-[#8C6226] bg-[#8C6226] text-[#FAF8F4]'
+                : 'border-[#143B2B] bg-[#143B2B] text-[#FAF8F4]'
+              : isMeal
+                ? 'border-[#D9C39F] bg-white/80 text-transparent hover:border-[#8C6226]'
+                : 'border-[#DDD6C9] bg-white text-transparent hover:border-[#143B2B]'
           }`}
         >
           <Check className="h-3.5 w-3.5 stroke-[2]" />
@@ -133,16 +152,22 @@ export function StepCard({
 
       {/* Editorial title */}
       <h3
-        className={`font-editorial mt-2.5 text-[22px] font-medium leading-[1.22] text-[#143B2B] ${
-          step.done ? 'line-through decoration-[#B39258]/70' : ''
-        }`}
+        className={`font-editorial mt-2 font-medium leading-[1.22] ${
+          isMeal
+            ? 'text-[20px] text-[#4E3514]'
+            : 'text-[22px] text-[#143B2B]'
+        } ${step.done ? 'line-through decoration-[#B39258]/70' : ''}`}
       >
         {step.title}
       </h3>
 
       {/* Location line + compact Maps button */}
-      <div className="mt-2 flex items-center justify-between gap-2">
-        <p className="flex min-w-0 items-center gap-1.5 text-[12.5px] font-light text-[#5F7067]">
+      <div className="mt-1.5 flex items-center justify-between gap-2">
+        <p
+          className={`flex min-w-0 items-center gap-1.5 text-[12.5px] font-light ${
+            isMeal ? 'text-[#735A38]' : 'text-[#5F7067]'
+          }`}
+        >
           <MapPin className="h-3.5 w-3.5 shrink-0 stroke-[1.5] text-[#B39258]" />
           <span className="truncate">{step.location}</span>
         </p>
@@ -153,7 +178,11 @@ export function StepCard({
           target="_blank"
           rel="noreferrer"
           aria-label={`Ouvrir ${step.title} dans Google Maps`}
-          className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[#ECE7DE] bg-[#FAF8F4] px-2.5 py-1 text-[11px] font-normal text-[#143B2B] transition hover:border-[#B39258]"
+          className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-normal transition ${
+            isMeal
+              ? 'border-[#E2CFAF] bg-white/80 text-[#5C3F17] hover:border-[#B39258]'
+              : 'border-[#ECE7DE] bg-[#FAF8F4] text-[#143B2B] hover:border-[#B39258]'
+          }`}
         >
           <Navigation className="h-3 w-3 stroke-[1.6] text-[#B39258]" />
           <span>Maps</span>
@@ -161,7 +190,11 @@ export function StepCard({
       </div>
 
       {/* Compact meta bar + expand trigger */}
-      <div className="mt-3 flex items-center justify-between gap-2 border-t border-[#F2EDE4] pt-2">
+      <div
+        className={`mt-2.5 flex items-center justify-between gap-2 border-t pt-2 ${
+          isMeal ? 'border-[#ECE0CA]' : 'border-[#F2EDE4]'
+        }`}
+      >
         <div className="flex flex-wrap items-center gap-2 text-[11.5px] font-light text-[#5F7067]">
           <span>Aya · {step.ayaRating}</span>
           <span className="text-[#D4CBB9]">•</span>

@@ -1,6 +1,6 @@
 import type { RealtimeChannel, SupabaseClient } from '@supabase/supabase-js';
 import type { TripState } from '../types/trip';
-import { isValidTripState } from './storage';
+import { isValidTripState, migrateTripState } from './storage';
 
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim() || '';
 const SUPABASE_ANON_KEY =
@@ -53,7 +53,7 @@ export async function pullRemoteState(familyCode: string): Promise<TripState | n
   }
 
   if (data && isValidTripState(data.payload)) {
-    return data.payload;
+    return migrateTripState(data.payload);
   }
 
   return null;
@@ -105,7 +105,7 @@ export function subscribeToFamilySync(
         (payload) => {
           const nextRow = payload.new as Partial<SyncRow> | undefined;
           if (nextRow && isValidTripState(nextRow.payload)) {
-            onRemoteState(nextRow.payload);
+            onRemoteState(migrateTripState(nextRow.payload));
           }
         }
       )

@@ -1,7 +1,12 @@
 import { useState, type FormEvent } from 'react';
 import { Trash2, X } from 'lucide-react';
 import { TRIP_DAYS } from '../data/days';
-import type { BookingStatus, KidCompatibility, TripStep } from '../types/trip';
+import type {
+  BookingStatus,
+  KidCompatibility,
+  StepKind,
+  TripStep,
+} from '../types/trip';
 
 interface StepModalProps {
   defaultDayId: string;
@@ -19,6 +24,7 @@ export function StepModal({
   onDelete,
 }: StepModalProps) {
   const [dayId, setDayId] = useState(initialStep?.dayId ?? defaultDayId);
+  const [kind, setKind] = useState<StepKind>(initialStep?.kind ?? 'activite');
   const [timeStart, setTimeStart] = useState(initialStep?.timeStart ?? '10h30');
   const [timeEnd, setTimeEnd] = useState(initialStep?.timeEnd ?? '');
   const [title, setTitle] = useState(initialStep?.title ?? '');
@@ -51,6 +57,7 @@ export function StepModal({
     const parsedCost = costGbp.trim() === '' ? undefined : Number(costGbp);
     onSave({
       dayId,
+      kind,
       timeStart: timeStart.trim() || '10h00',
       timeEnd: timeEnd.trim() || undefined,
       title: title.trim(),
@@ -102,6 +109,29 @@ export function StepModal({
         </div>
 
         <form onSubmit={handleSubmit} className="mt-4 space-y-3.5 text-[13px]">
+          <div className="grid grid-cols-2 gap-2 rounded-xl border border-[#E7E2D8] bg-white p-1">
+            {(
+              [
+                ['activite', 'Activité'],
+                ['repas', 'Repas'],
+              ] as const
+            ).map(([val, label]) => (
+              <button
+                key={val}
+                type="button"
+                onClick={() => setKind(val)}
+                className={`rounded-lg py-1.5 text-[12px] font-medium transition ${
+                  kind === val
+                    ? val === 'repas'
+                      ? 'bg-[#EFE1C6] text-[#5C3F17]'
+                      : 'bg-[#143B2B] text-[#FAF8F4]'
+                    : 'text-[#5F7067]'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           <div className="grid grid-cols-3 gap-2.5">
             <div className="col-span-3 sm:col-span-1">
               <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-[#4C6358]">

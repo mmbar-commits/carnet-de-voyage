@@ -49,14 +49,19 @@ export function ActivitesTab() {
     return map;
   }, [state.steps]);
 
+  const plannedActivities = useMemo(
+    () => state.steps.filter((s) => s.kind !== 'repas'),
+    [state.steps]
+  );
+
   const filteredPlanned = useMemo(() => {
     if (scope === 'bonus') return [];
-    return state.steps.filter((step) => {
+    return plannedActivities.filter((step) => {
       if (activeTags.length === 0) return true;
       const stepTags = step.tags ?? [];
       return activeTags.every((t) => stepTags.includes(t));
     });
-  }, [scope, state.steps, activeTags]);
+  }, [scope, plannedActivities, activeTags]);
 
   const filteredBonus = useMemo(() => {
     if (scope === 'planned') return [];
@@ -94,7 +99,7 @@ export function ActivitesTab() {
         {(
           [
             ['bonus', `Bonus (${BONUS_ACTIVITIES.length})`],
-            ['planned', `Planifiées (${state.steps.length})`],
+            ['planned', `Planifiées (${plannedActivities.length})`],
             ['all', 'Toutes'],
           ] as const
         ).map(([val, label]) => (

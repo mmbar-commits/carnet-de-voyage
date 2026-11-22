@@ -30,10 +30,13 @@ export interface TripDay {
   criticalBanner?: CriticalBanner;
 }
 
+export type StepKind = 'activite' | 'repas';
+
 export interface TripStep {
   id: string;
   dayId: string;
   order: number;
+  kind?: StepKind;
   timeStart: string;
   timeEnd?: string;
   title: string;

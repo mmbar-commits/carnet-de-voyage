@@ -415,7 +415,7 @@ export function InfosTab() {
         )}
       </article>
 
-      {/* 5. Synchronisation 2 téléphones */}
+      {/* 5. Synchronisation multi-appareils */}
       <article className="ivy-card overflow-hidden rounded-2xl">
         <button
           type="button"
@@ -425,7 +425,7 @@ export function InfosTab() {
           <div className="flex items-center gap-2.5">
             <Cloud className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
             <h3 className="font-editorial text-[21px] font-normal text-[#143B2B]">
-              Synchro 2 téléphones
+              Synchro multi-appareils
             </h3>
           </div>
           <div className="flex items-center gap-2">
@@ -444,7 +444,7 @@ export function InfosTab() {
           <div className="space-y-3 border-t border-[#F2EDE4] px-4 py-3.5 text-[12.5px] font-light text-[#5F7067]">
             <p className="leading-relaxed">
               {supabaseReady
-                ? 'Saisissez le même Code Famille sur vos deux téléphones pour synchroniser en temps réel.'
+                ? 'Saisissez le même Code Famille sur autant de téléphones, tablettes ou PC que vous voulez pour synchroniser en temps réel.'
                 : 'Sauvegarde locale active hors-ligne. Pour la synchro temps réel, ajoutez VITE_SUPABASE_URL et VITE_SUPABASE_ANON_KEY dans GitHub Actions.'}
             </p>
             <div className="flex gap-2">
@@ -491,7 +491,7 @@ export function InfosTab() {
                 Erreur de synchro : {syncStatus.errorMessage || 'vérifiez la table trip_sync dans Supabase'}
               </p>
             )}
-            {!supabaseReady && (
+            {(!supabaseReady || syncStatus.mode === 'error') && (
               <div>
                 <button
                   type="button"

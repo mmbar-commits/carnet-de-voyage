@@ -1,8 +1,16 @@
 import { useState } from 'react';
-import { AlertCircle, CalendarDays, Check, Feather } from 'lucide-react';
+import {
+  AlertCircle,
+  CalendarDays,
+  Check,
+  ExternalLink,
+  Feather,
+  Map as MapIcon,
+} from 'lucide-react';
 import { DAY_MAP, TRIP_DAYS } from '../data/days';
 import { JOURNAL_CONTENT } from '../data/journal';
 import { useTrip } from '../store/TripContext';
+import type { DayRoute } from '../types/trip';
 import { DaySelector } from './DaySelector';
 
 const MEMORY_PROMPTS = [
@@ -10,6 +18,41 @@ const MEMORY_PROMPTS = [
   'Mot d’Adam : «  »',
   'Coup de cœur : ',
 ];
+
+function buildEmbeddedRouteUrl(route: DayRoute): string {
+  const [origin, ...rest] = route.stops;
+  if (!origin || rest.length === 0) {
+    return `https://maps.google.com/maps?q=${encodeURIComponent(
+      origin?.query || 'Mayfair, London, UK'
+    )}&z=14&output=embed`;
+  }
+  const daddr = rest.map((s) => s.query).join(' to:');
+  return `https://maps.google.com/maps?saddr=${encodeURIComponent(
+    origin.query
+  )}&daddr=${encodeURIComponent(daddr)}&dirflg=${route.mode}&hl=fr&output=embed`;
+}
+
+function buildExternalRouteUrl(route: DayRoute): string {
+  const origin = route.stops[0]?.query || 'Mayfair, London, UK';
+  const destination =
+    route.stops[route.stops.length - 1]?.query || 'Mayfair, London, UK';
+  const waypoints = route.stops
+    .slice(1, -1)
+    .map((s) => s.query)
+    .join('|');
+  const travelmode = route.mode === 'r' ? 'transit' : 'walking';
+
+  const params = new URLSearchParams({
+    api: '1',
+    origin,
+    destination,
+    travelmode,
+  });
+  if (waypoints) {
+    params.set('waypoints', waypoints);
+  }
+  return `https://www.google.com/maps/dir/?${params.toString()}`;
+}
 
 export function CarnetTab() {
   const { selectedDayId, state, updateMemory, setActiveTab } = useTrip();
@@ -37,6 +80,9 @@ export function CarnetTab() {
         minute: '2-digit',
       })
     : null;
+
+  const embedMapUrl = buildEmbeddedRouteUrl(entry.route);
+  const externalMapUrl = buildExternalRouteUrl(entry.route);
 
   return (
     <section id="tab-panel-carnet" className="space-y-5">
@@ -172,6 +218,60 @@ export function CarnetTab() {
           placeholder="Un mot d’Aya, un rire d’Adam, une belle adresse..."
           className="notebook-paper font-hand mt-3 w-full resize-y rounded-2xl border border-[#ECE7DE] px-4 py-2 text-[13.5px] font-light text-[#143B2B] placeholder:text-[#5F7067]/45 focus:border-[#143B2B] focus:outline-none"
         />
+      </div>
+
+      {/* Embedded Interactive Google Maps Route Card for the Day */}
+      <div
+        id={`journal-map-card-${day.id}`}
+        className="ivy-card overflow-hidden rounded-3xl"
+      >
+        <div className="px-5 pt-4 pb-3.5">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <MapIcon className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+              <h3 className="font-editorial text-[22px] font-medium text-[#143B2B]">
+                Itinéraire du jour
+              </h3>
+            </div>
+
+            <a
+              id={`journal-maps-open-${day.id}`}
+              href={externalMapUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 rounded-full border border-[#ECE7DE] bg-[#FAF8F4] px-2.5 py-1 text-[11px] font-normal text-[#143B2B] transition hover:border-[#B39258]"
+            >
+              <span>Ouvrir Maps</span>
+              <ExternalLink className="h-3 w-3 stroke-[1.5] text-[#B39258]" />
+            </a>
+          </div>
+
+          <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-[11.5px] font-light text-[#5F7067]">
+            {entry.route.stops.map((stop, idx) => (
+              <span key={stop.label} className="inline-flex items-center gap-1">
+                <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#F8F3E9] text-[10px] font-medium text-[#83662F]">
+                  {idx + 1}
+                </span>
+                <span className="text-[#143B2B]">{stop.label}</span>
+                {idx < entry.route.stops.length - 1 && (
+                  <span className="text-[#C8BCA6]">→</span>
+                )}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div className="border-t border-[#ECE7DE] bg-[#F4F0E8]">
+          <iframe
+            key={day.id}
+            id={`journal-map-iframe-${day.id}`}
+            title={`Carte Google Maps du ${day.dateLong}`}
+            src={embedMapUrl}
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+            className="block h-[270px] w-full border-0"
+          />
+        </div>
       </div>
     </section>
   );

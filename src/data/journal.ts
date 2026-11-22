@@ -14,6 +14,13 @@ export const JOURNAL_CONTENT: Record<string, JournalDayContent> = {
     logisticsNote:
       'Garder les cartes Contactless (1 par adulte, enfants gratuits < 11 ans sur le Tube !) à portée de main dès la sortie de Heathrow. Vérifier les horaires de fermeture du supermarché le plus proche pour le 24.',
     marginQuote: 'Bienvenue à la maison, W1J 7SU !',
+    route: {
+      mode: 'r',
+      stops: [
+        { label: 'Heathrow T4', query: 'London Heathrow Airport Terminal 4, UK' },
+        { label: 'Mayfair W1J 7SU', query: 'Hertford Street, Mayfair, London W1J 7SU, UK' },
+      ],
+    },
   },
   '2026-12-23': {
     dayId: '2026-12-23',
@@ -28,6 +35,14 @@ export const JOURNAL_CONTENT: Record<string, JournalDayContent> = {
     logisticsNote:
       'Réserver le créneau gratuit du British Museum en ligne pour passer par la file rapide. Les poussettes pliantes passent très bien mais l’entrée Montague Place (arrière) est souvent plus fluide que Great Russell Street.',
     marginQuote: 'Astuce : sortir du musée tant que tout le monde a encore le sourire !',
+    route: {
+      mode: 'w',
+      stops: [
+        { label: 'Mayfair W1J 7SU', query: 'Hertford Street, Mayfair, London W1J 7SU, UK' },
+        { label: 'Hamleys', query: 'Hamleys, 188-196 Regent Street, London, UK' },
+        { label: 'British Museum', query: 'The British Museum, Great Russell Street, London, UK' },
+      ],
+    },
   },
   '2026-12-24': {
     dayId: '2026-12-24',
@@ -42,6 +57,14 @@ export const JOURNAL_CONTENT: Record<string, JournalDayContent> = {
     logisticsNote:
       'Gants, bonnets et chaussettes chaudes obligatoires pour Winter Wonderland (le parc est humide). Vérifier qu’on a bien tout pour tenir 24h complètes sans aucun magasin ouvert demain.',
     marginQuote: 'Tout boucler avant 16h : demain Londres dort !',
+    route: {
+      mode: 'w',
+      stops: [
+        { label: 'Mayfair W1J 7SU', query: 'Hertford Street, Mayfair, London W1J 7SU, UK' },
+        { label: 'Winter Wonderland', query: 'Hyde Park Winter Wonderland, London, UK' },
+        { label: 'Shepherd Market', query: 'Shepherd Market, Mayfair, London, UK' },
+      ],
+    },
   },
   '2026-12-25': {
     dayId: '2026-12-25',
@@ -56,6 +79,15 @@ export const JOURNAL_CONTENT: Record<string, JournalDayContent> = {
     logisticsNote:
       'Aucun commerce alimentaire ouvert hormis quelques petites supérettes indépendantes. Prendre un thermos de chocolat chaud et des biscuits dans le sac à dos pour la balade de fin d’après-midi.',
     marginQuote: 'Regent Street sans voitures : souvenir gravé à vie.',
+    route: {
+      mode: 'w',
+      stops: [
+        { label: 'Mayfair W1J 7SU', query: 'Hertford Street, Mayfair, London W1J 7SU, UK' },
+        { label: 'Buckingham Palace', query: 'Buckingham Palace, London, UK' },
+        { label: 'St James’s Park', query: 'St Jamess Park, London, UK' },
+        { label: 'Regent Street', query: 'Regent Street, London, UK' },
+      ],
+    },
   },
   '2026-12-26': {
     dayId: '2026-12-26',
@@ -70,6 +102,13 @@ export const JOURNAL_CONTENT: Record<string, JournalDayContent> = {
     logisticsNote:
       'Vérifier les horaires de la Northern Line le 26 décembre (service dimanche/réduit). La station Battersea Power Station est entièrement accessible avec ascenseurs larges.',
     marginQuote: 'Chaud dedans, patins dehors : le Boxing Day parfait.',
+    route: {
+      mode: 'r',
+      stops: [
+        { label: 'Mayfair W1J 7SU', query: 'Hertford Street, Mayfair, London W1J 7SU, UK' },
+        { label: 'Battersea Power Station', query: 'Battersea Power Station, London SW11 8AL, UK' },
+      ],
+    },
   },
   '2026-12-27': {
     dayId: '2026-12-27',
@@ -78,12 +117,21 @@ export const JOURNAL_CONTENT: Record<string, JournalDayContent> = {
       'Grande journée historique et fierté d’anciens résidents : grâce au tarif résident Tower Hamlets, nous entrons dès 10h00 à la Tour de Londres pour £1 ! On file aussitôt admirer les Joyaux de la Couronne avant les groupes, puis direction la Tour Blanche, les armures royales et les célèbres corbeaux dans la cour.',
     lunchTitle: 'Pause déjeuner à St Katharine Docks ou sur le quai',
     lunch:
-      'À deux minutes à pied de la sortie, la marina calme de St Katharine Docks offre un décor superbe : Bravas Tapas, Honest Burgers ou Cote Brasserie (menu enfant soigné et service rapide), avec vue sur les bateaux décorés.',
+      'À deux minutes à pied de la sortie, la marina calme de St Katharine Docks offre un décor superbe : Bravas Tapas, Honest Burgers ou Côte Brasserie (menu enfant soigné et service rapide), avec vue sur les bateaux décorés.',
     afternoon:
       'À 14h15, on traverse les quelques mètres vers Tower Bridge (là encore à £1 grâce au justificatif !). Moment frisson garanti pour Aya et Adam sur les passerelles vitrées à 42 mètres au-dessus des bus rouges, avant de descendre explorer les magnifiques salles des machines victoriennes peintes de vert et d’or.',
     logisticsNote:
-      'IMPÉRATIF dans le sac dès le matin : justificatif de résidence Tower Hamlets + pièce d’identité avec photo. Sans ces documents, pas de tarif £1 (économie de ~£120 sur la journée !).',
-    marginQuote: '~£120 économisés aujourd’hui : merci Tower Hamlets !',
+      'IMPÉRATIF dans le sac dès le matin : justificatif de résidence Tower Hamlets + pièce d’identité avec photo. Sans ces documents, pas de tarif £1 (économie de ~£124 sur la journée !).',
+    marginQuote: '~£124 économisés aujourd’hui : merci Tower Hamlets !',
+    route: {
+      mode: 'w',
+      stops: [
+        { label: 'Tower Hill', query: 'Tower Hill Underground Station, London, UK' },
+        { label: 'Tour de Londres', query: 'Tower of London, London EC3N 4AB, UK' },
+        { label: 'St Katharine Docks', query: 'St Katharine Docks, London, UK' },
+        { label: 'Tower Bridge', query: 'Tower Bridge, London SE1 2UP, UK' },
+      ],
+    },
   },
   '2026-12-28': {
     dayId: '2026-12-28',
@@ -97,7 +145,15 @@ export const JOURNAL_CONTENT: Record<string, JournalDayContent> = {
       'À 200 mètres de là, le Science Museum offre le duo parfait pour nos deux âges : pendant qu’Adam s’éclate au sous-sol dans The Garden (jeux d’eau, poulies et sons pour les 3–6 ans), Aya explore les expériences spectaculaires et les toboggans géants du Wonderlab.',
     logisticsNote:
       'Prendre un haut de rechange léger pour Adam (les jeux d’eau de The Garden ont des tabliers, mais les manches finissent souvent mouillées !). Réserver 10h00 au NHM et le créneau Wonderlab bien en amont.',
-    marginQuote: '4 minutes de Tube direct : le luxe de loger à Mayfair.',
+    marginQuote: '4 minutes de Tube direct : le luxe de Mayfair.',
+    route: {
+      mode: 'w',
+      stops: [
+        { label: 'Mayfair W1J 7SU', query: 'Hertford Street, Mayfair, London W1J 7SU, UK' },
+        { label: 'Natural History Museum', query: 'Natural History Museum, Cromwell Road, London, UK' },
+        { label: 'Science Museum', query: 'Science Museum, Exhibition Road, London, UK' },
+      ],
+    },
   },
   '2026-12-29': {
     dayId: '2026-12-29',
@@ -112,6 +168,15 @@ export const JOURNAL_CONTENT: Record<string, JournalDayContent> = {
     logisticsNote:
       'Journée « respiration » en milieu de séjour : aucune réservation stricte, on s’adapte au niveau de fatigue d’Adam et à la météo.',
     marginQuote: 'Le musée préféré d’Adam, sans l’ombre d’un doute !',
+    route: {
+      mode: 'w',
+      stops: [
+        { label: 'Bethnal Green', query: 'Bethnal Green Underground Station, London, UK' },
+        { label: 'Young V&A', query: 'Young V&A, Cambridge Heath Road, London, UK' },
+        { label: 'Victoria Park', query: 'Victoria Park Pavilion Cafe, London, UK' },
+        { label: 'Spitalfields', query: 'Old Spitalfields Market, London, UK' },
+      ],
+    },
   },
   '2026-12-30': {
     dayId: '2026-12-30',
@@ -126,6 +191,15 @@ export const JOURNAL_CONTENT: Record<string, JournalDayContent> = {
     logisticsNote:
       'Astuce en or : toujours descendre à Leicester Square (et jamais Covent Garden) avec des enfants. Le billet adulte du London Transport Museum est valable 1 an et gratuit pour les enfants !',
     marginQuote: 'Toujours Leicester Square, jamais les ascenseurs de Covent Garden !',
+    route: {
+      mode: 'w',
+      stops: [
+        { label: 'Mayfair W1J 7SU', query: 'Hertford Street, Mayfair, London W1J 7SU, UK' },
+        { label: 'Buckingham Palace', query: 'Buckingham Palace, London, UK' },
+        { label: 'Seven Dials', query: 'Seven Dials Market, Covent Garden, London, UK' },
+        { label: 'Transport Museum', query: 'London Transport Museum, Covent Garden Piazza, London, UK' },
+      ],
+    },
   },
   '2026-12-31': {
     dayId: '2026-12-31',
@@ -140,6 +214,14 @@ export const JOURNAL_CONTENT: Record<string, JournalDayContent> = {
     logisticsNote:
       'Vérifier que les valises cabine respectent bien les liquides (< 100 ml) et le poids avant de se coucher, pour profiter sereinement de la parade demain midi.',
     marginQuote: 'Retour au chaud avant 17h : bonne année 2027 en douceur !',
+    route: {
+      mode: 'w',
+      stops: [
+        { label: 'Mayfair W1J 7SU', query: 'Hertford Street, Mayfair, London W1J 7SU, UK' },
+        { label: 'Memorial Playground', query: 'Diana Princess of Wales Memorial Playground, London, UK' },
+        { label: 'Kensington', query: 'High Street Kensington, London, UK' },
+      ],
+    },
   },
   '2027-01-01': {
     dayId: '2027-01-01',
@@ -148,11 +230,18 @@ export const JOURNAL_CONTENT: Record<string, JournalDayContent> = {
       'Matinée paisible de rangement et de dernier petit-déjeuner anglais à Hertford Street. À 13h00, on n’a qu’à descendre au bout de la rue sur Piccadilly pour applaudir pendant une bonne demi-heure la London New Year’s Day Parade : fanfares, chars, danseurs et ballons géants pour un au revoir en fanfare !',
     lunchTitle: 'Déjeuner léger avant le départ & goûter à Heathrow',
     lunch:
-      'Brunch matinal à l’appartement pour vider le frigo, quelques snacks dans le sac pour le métro, puis pause goûter tranquille après les contrôles à Heathrow Terminal en attendant l’embarquement du vol AT801.',
+      'Brunch matinal à l’appartement pour vider le frigo, quelques snacks dans le sac pour le métro, puis pause goûter tranquille après les contrôles à Heathrow Terminal 4 en attendant l’embarquement du vol AT801.',
     afternoon:
-      'Règle absolue à 13h45–14h00 : aucun taxi ni Uber (toutes les rues autour de Mayfair sont bloquées par la parade). On file directement sous terre à la station Hyde Park Corner, direction Heathrow par la Piccadilly Line directe. Décollage AT801 à 17h15, atterrissage à Casablanca à 21h30, la tête pleine de lumières.',
+      'Règle absolue à 13h45–14h00 : aucun taxi ni Uber (toutes les rues autour de Mayfair sont bloquées par la parade). On file directement sous terre à la station Hyde Park Corner, direction Heathrow Terminal 4 par la Piccadilly Line directe. Décollage AT801 à 17h15, atterrissage à Casablanca Terminal 2 à 21h30, la tête pleine de lumières.',
     logisticsNote:
       'Garder 15 min de marge pour rejoindre l’entrée du métro Hyde Park Corner en contournant la foule de Piccadilly. Bagages cabine = passage direct sécurité sans dépose-bagages.',
     marginQuote: 'Piccadilly Line à 13h45 pile — zéro taxi aujourd’hui !',
+    route: {
+      mode: 'r',
+      stops: [
+        { label: 'Hyde Park Corner', query: 'Hyde Park Corner Underground Station, London, UK' },
+        { label: 'Heathrow T4', query: 'London Heathrow Airport Terminal 4, UK' },
+      ],
+    },
   },
 };

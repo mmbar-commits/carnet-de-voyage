@@ -137,6 +137,8 @@ export const SUPABASE_SQL_SNIPPET = `create table if not exists public.trip_sync
   updated_at timestamptz not null default now()
 );
 
+grant select, insert, update, delete on public.trip_sync to anon, authenticated;
+
 alter table public.trip_sync enable row level security;
 
 create policy "Family code read/write"
@@ -145,4 +147,6 @@ create policy "Family code read/write"
   using (true)
   with check (true);
 
-alter publication supabase_realtime add table public.trip_sync;`;
+alter publication supabase_realtime add table public.trip_sync;
+
+notify pgrst, 'reload schema';`;

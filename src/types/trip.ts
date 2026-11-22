@@ -57,6 +57,11 @@ export interface TripStep {
   bonusActivityId?: string;
 }
 
+export interface DayRoute {
+  mode: 'w' | 'r';
+  stops: { label: string; query: string }[];
+}
+
 export interface JournalDayContent {
   dayId: string;
   subtitle: string;
@@ -66,6 +71,7 @@ export interface JournalDayContent {
   afternoon: string;
   logisticsNote: string;
   marginQuote: string;
+  route: DayRoute;
 }
 
 export interface JournalMemory {

@@ -1,10 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="96" fill="#143B2B"/>
-  <rect x="40" y="40" width="432" height="432" rx="64" fill="none" stroke="#B39258" stroke-width="5" opacity="0.88"/>
-  <rect x="56" y="56" width="400" height="400" rx="50" fill="none" stroke="#B39258" stroke-width="2" opacity="0.5"/>
-  <text x="256" y="238" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-weight="600" font-size="112" letter-spacing="14" fill="#FAF8F4">LDN</text>
-  <line x1="146" y1="274" x2="232" y2="274" stroke="#B39258" stroke-width="3"/>
-  <polygon points="256,264 266,274 256,284 246,274" fill="#B39258"/>
-  <line x1="280" y1="274" x2="366" y2="274" stroke="#B39258" stroke-width="3"/>
-  <text x="256" y="368" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-weight="500" font-size="94" letter-spacing="12" fill="#D7BD8A">26</text>
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="45%" r="65%">
+      <stop offset="0%" stop-color="#194835"/>
+      <stop offset="100%" stop-color="#113224"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <circle cx="256" cy="256" r="196" fill="none" stroke="#B39258" stroke-width="4" opacity="0.85"/>
+  <circle cx="256" cy="256" r="184" fill="none" stroke="#B39258" stroke-width="1.4" opacity="0.45"/>
+  <polygon points="256,88 262,94 256,100 250,94" fill="#C7A66B" opacity="0.85"/>
+  <polygon points="256,412 262,418 256,424 250,418" fill="#C7A66B" opacity="0.85"/>
+  <text x="256" y="232" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-weight="600" font-size="98" letter-spacing="12" fill="#FAF8F4">LDN</text>
+  <line x1="154" y1="264" x2="235" y2="264" stroke="#B39258" stroke-width="2.6" opacity="0.9"/>
+  <polygon points="256,255 265,264 256,273 247,264" fill="#B39258"/>
+  <line x1="277" y1="264" x2="358" y2="264" stroke="#B39258" stroke-width="2.6" opacity="0.9"/>
+  <text x="256" y="352" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-weight="500" font-size="82" letter-spacing="12" fill="#DFC592">26</text>
 </svg>

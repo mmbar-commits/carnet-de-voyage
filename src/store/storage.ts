@@ -1,11 +1,19 @@
+import { isValidCurrencyCode } from '../data/currencies';
 import { INITIAL_EXPENSES } from '../data/expenses';
 import { INITIAL_CHECKLIST } from '../data/infos';
 import { INITIAL_STEPS } from '../data/steps';
-import type { ExchangeRates, Language, TripState, TripStep } from '../types/trip';
+import type {
+  ExchangeRates,
+  Language,
+  TripCurrencies,
+  TripState,
+  TripStep,
+} from '../types/trip';
 
-export const STATE_VERSION = 4;
+export const STATE_VERSION = 5;
 export const STORAGE_KEY = `londres-noel-2026:state:v${STATE_VERSION}`;
 const LEGACY_KEYS = [
+  'londres-noel-2026:state:v4',
   'londres-noel-2026:state:v3',
   'londres-noel-2026:state:v2',
   'londres-noel-2026:state:v1',
@@ -17,6 +25,11 @@ export const LANGUAGE_KEY = 'londres-noel-2026:lang';
 export const DEFAULT_RATES: ExchangeRates = {
   madPerGbp: 12.6,
   eurPerGbp: 1.18,
+};
+
+export const DEFAULT_CURRENCIES: TripCurrencies = {
+  tripCurrency: 'GBP',
+  homeCurrency: 'MAD',
 };
 
 export const DEFAULT_PEOPLE: string[] = ['Famille', 'Mehdi', 'Aïda', 'Aya', 'Adam'];
@@ -32,6 +45,7 @@ export function createDefaultState(): TripState {
     expenses: INITIAL_EXPENSES.map((expense) => ({ ...expense })),
     checklist: INITIAL_CHECKLIST.map((item) => ({ ...item })),
     rates: { ...DEFAULT_RATES },
+    currencies: { ...DEFAULT_CURRENCIES },
     people: [...DEFAULT_PEOPLE],
   };
 }
@@ -119,12 +133,23 @@ export function migrateTripState(parsed: TripState): TripState {
     );
   }
 
+  const rawCurrencies = (parsed as Partial<TripState>).currencies;
+  const currencies: TripCurrencies = {
+    tripCurrency: isValidCurrencyCode(rawCurrencies?.tripCurrency)
+      ? rawCurrencies.tripCurrency
+      : DEFAULT_CURRENCIES.tripCurrency,
+    homeCurrency: isValidCurrencyCode(rawCurrencies?.homeCurrency)
+      ? rawCurrencies.homeCurrency
+      : DEFAULT_CURRENCIES.homeCurrency,
+  };
+
   return {
     ...createDefaultState(),
     ...parsed,
     steps,
     expenses,
     people,
+    currencies,
     version: STATE_VERSION,
     rates: {
       madPerGbp:

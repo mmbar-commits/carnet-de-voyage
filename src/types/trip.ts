@@ -107,7 +107,28 @@ export interface BonusActivity {
   tags: ActivityTag[];
 }
 
-export type DisplayCurrency = 'GBP' | 'MAD';
+export type CurrencyCode =
+  | 'GBP'
+  | 'MAD'
+  | 'EUR'
+  | 'USD'
+  | 'CHF'
+  | 'CAD'
+  | 'JPY'
+  | 'AED'
+  | 'TRY'
+  | 'THB'
+  | 'AUD'
+  | 'DKK'
+  | 'SEK'
+  | 'NOK';
+
+export interface TripCurrencies {
+  tripCurrency: CurrencyCode;
+  homeCurrency: CurrencyCode;
+}
+
+export type DisplayCurrency = 'trip' | 'home';
 
 export interface Expense {
   id: string;
@@ -169,6 +190,7 @@ export interface TripState {
   expenses: Expense[];
   checklist: ChecklistItem[];
   rates: ExchangeRates;
+  currencies: TripCurrencies;
   people: string[];
   hideBudgetForViewers?: boolean;
 }

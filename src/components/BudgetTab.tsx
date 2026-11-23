@@ -9,6 +9,7 @@ import {
   Plus,
   SlidersHorizontal,
 } from 'lucide-react';
+import { formatCurrencyAmount, getCurrencyChipLabel } from '../data/currencies';
 import { DAY_MAP, TRIP_DAYS } from '../data/days';
 import { PAYMENT_METHODS } from '../data/expenses';
 import { getCategoryLabel, getDayLabel, UI_TEXT } from '../i18n/translations';
@@ -22,17 +23,6 @@ const ALL_CATEGORIES: ExpenseCategory[] = [
   'transports',
   'shopping',
 ];
-
-function formatGbp(amount: number, locale: string): string {
-  return `£${amount.toLocaleString(locale, {
-    minimumFractionDigits: amount % 1 === 0 ? 0 : 2,
-    maximumFractionDigits: 2,
-  })}`;
-}
-
-function formatMad(amountGbp: number, rate: number, locale: string): string {
-  return `${Math.round(amountGbp * rate).toLocaleString(locale)} MAD`;
-}
 
 export function BudgetTab() {
   const {
@@ -49,7 +39,7 @@ export function BudgetTab() {
   const t = UI_TEXT[lang];
   const locale = lang === 'fr' ? 'fr-FR' : 'en-GB';
 
-  const [currency, setCurrency] = useState<DisplayCurrency>('GBP');
+  const [currency, setCurrency] = useState<DisplayCurrency>('trip');
   const [categoryFilter, setCategoryFilter] = useState<ExpenseCategory | 'all'>(
     'all'
   );
@@ -73,12 +63,26 @@ export function BudgetTab() {
   );
 
   const { madPerGbp, eurPerGbp } = state.rates;
+  const { tripCurrency, homeCurrency } = state.currencies;
+  const sameCurrency = tripCurrency === homeCurrency;
+  const homePerTrip = sameCurrency ? 1 : madPerGbp;
 
-  const formatPrimary = (gbp: number) =>
-    currency === 'GBP' ? formatGbp(gbp, locale) : formatMad(gbp, madPerGbp, locale);
+  const rateEditorLabel =
+    lang === 'fr'
+      ? `Taux de change (1 ${tripCurrency} en ${homeCurrency})`
+      : `Exchange rate (1 ${tripCurrency} in ${homeCurrency})`;
 
-  const formatSecondary = (gbp: number) =>
-    currency === 'GBP' ? formatMad(gbp, madPerGbp, locale) : formatGbp(gbp, locale);
+  const formatPrimary = (amountInTrip: number) =>
+    currency === 'trip' || sameCurrency
+      ? formatCurrencyAmount(amountInTrip, tripCurrency, locale)
+      : formatCurrencyAmount(amountInTrip * homePerTrip, homeCurrency, locale);
+
+  const formatSecondary = (amountInTrip: number): string | null => {
+    if (sameCurrency) return null;
+    return currency === 'trip'
+      ? formatCurrencyAmount(amountInTrip * homePerTrip, homeCurrency, locale)
+      : formatCurrencyAmount(amountInTrip, tripCurrency, locale);
+  };
 
   const filteredExpenses = useMemo(() => {
     if (categoryFilter === 'all') return state.expenses;
@@ -299,9 +303,11 @@ export function BudgetTab() {
             <p className="text-[13px] font-medium text-[#143B2B]">
               {formatPrimary(item.amountGbp)}
             </p>
-            <p className="text-[10.5px] font-light text-[#5F7067]">
-              {formatSecondary(item.amountGbp)}
-            </p>
+            {!sameCurrency && (
+              <p className="text-[10.5px] font-light text-[#5F7067]">
+                {formatSecondary(item.amountGbp)}
+              </p>
+            )}
           </div>
           {canEdit && (
             <button
@@ -323,7 +329,7 @@ export function BudgetTab() {
 
   return (
     <section id="tab-panel-budget" className="space-y-5">
-      {/* Header + GBP/MAD Toggle */}
+      {/* Header + Dynamic Trip/Home Currency Toggle */}
       <div className="flex items-end justify-between gap-2 pt-2">
         <div>
           <span className="text-[11px] font-normal uppercase tracking-[0.16em] text-[#B39258]">
@@ -335,30 +341,44 @@ export function BudgetTab() {
         </div>
 
         <div className="flex items-center gap-2">
-          <div
-            role="group"
-            aria-label="Currency"
-            className="inline-flex rounded-full border border-[#ECE7DE] bg-white p-0.5"
-          >
-            {(['GBP', 'MAD'] as const).map((code) => (
-              <button
-                key={code}
-                id={`currency-toggle-${code}`}
-                type="button"
-                aria-pressed={currency === code}
-                onClick={() => setCurrency(code)}
-                className={`rounded-full px-2.5 py-1 text-[11px] transition ${
-                  currency === code
-                    ? 'bg-[#143B2B] font-medium text-[#FAF8F4]'
-                    : 'font-light text-[#5F7067]'
-                }`}
-              >
-                {code === 'GBP' ? '£ GBP' : 'MAD'}
-              </button>
-            ))}
-          </div>
+          {sameCurrency ? (
+            <span
+              id={`currency-toggle-${tripCurrency}`}
+              className="inline-flex rounded-full border border-[#ECE7DE] bg-[#143B2B] px-3 py-1 text-[11px] font-medium text-[#FAF8F4]"
+            >
+              {getCurrencyChipLabel(tripCurrency)}
+            </span>
+          ) : (
+            <div
+              role="group"
+              aria-label="Currency"
+              className="inline-flex rounded-full border border-[#ECE7DE] bg-white p-0.5"
+            >
+              {(
+                [
+                  { key: 'trip' as const, code: tripCurrency },
+                  { key: 'home' as const, code: homeCurrency },
+                ] as const
+              ).map(({ key, code }) => (
+                <button
+                  key={key}
+                  id={`currency-toggle-${code}`}
+                  type="button"
+                  aria-pressed={currency === key}
+                  onClick={() => setCurrency(key)}
+                  className={`rounded-full px-2.5 py-1 text-[11px] transition ${
+                    currency === key
+                      ? 'bg-[#143B2B] font-medium text-[#FAF8F4]'
+                      : 'font-light text-[#5F7067]'
+                  }`}
+                >
+                  {getCurrencyChipLabel(code)}
+                </button>
+              ))}
+            </div>
+          )}
 
-          {canEdit && (
+          {canEdit && !sameCurrency && (
             <button
               type="button"
               id="toggle-rates-btn"
@@ -372,19 +392,19 @@ export function BudgetTab() {
         </div>
       </div>
 
-      {canEdit && showRatesEditor && (
+      {canEdit && !sameCurrency && showRatesEditor && (
         <div className="ivy-card flex items-center justify-between gap-3 rounded-2xl px-4 py-3.5">
           <label
             htmlFor="rate-mad-input"
             className="text-[12.5px] font-light text-[#5F7067]"
           >
-            {t.budget.rateLabel}
+            {rateEditorLabel}
           </label>
           <input
             id="rate-mad-input"
             type="number"
-            step="0.05"
-            min="1"
+            step="any"
+            min="0.0001"
             value={madPerGbp}
             onChange={(e) => {
               const val = Number(e.target.value);
@@ -397,7 +417,7 @@ export function BudgetTab() {
         </div>
       )}
 
-      {/* Summary Card (GBP & MAD only) */}
+      {/* Summary Card */}
       <div className="ivy-card rounded-3xl px-5 py-5">
         <div className="flex items-baseline justify-between gap-2">
           <div>
@@ -411,11 +431,13 @@ export function BudgetTab() {
               {formatPrimary(totals.total)}
             </p>
           </div>
-          <div className="text-right tabular-nums">
-            <p className="text-[13.5px] font-normal text-[#5F7067]">
-              {formatSecondary(totals.total)}
-            </p>
-          </div>
+          {!sameCurrency && (
+            <div className="text-right tabular-nums">
+              <p className="text-[13.5px] font-normal text-[#5F7067]">
+                {formatSecondary(totals.total)}
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="mt-5">
@@ -526,9 +548,11 @@ export function BudgetTab() {
                     <p className="text-[14px] font-medium text-[#143B2B]">
                       {formatPrimary(group.subtotalGbp)}
                     </p>
-                    <p className="text-[10.5px] font-light text-[#5F7067]">
-                      {formatSecondary(group.subtotalGbp)}
-                    </p>
+                    {!sameCurrency && (
+                      <p className="text-[10.5px] font-light text-[#5F7067]">
+                        {formatSecondary(group.subtotalGbp)}
+                      </p>
+                    )}
                   </div>
                   {isOpen ? (
                     <ChevronUp className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
@@ -612,9 +636,11 @@ export function BudgetTab() {
                     <p className="text-[14px] font-medium text-[#143B2B]">
                       {formatPrimary(group.subtotalGbp)}
                     </p>
-                    <p className="text-[10.5px] font-light text-[#5F7067]">
-                      {formatSecondary(group.subtotalGbp)}
-                    </p>
+                    {!sameCurrency && (
+                      <p className="text-[10.5px] font-light text-[#5F7067]">
+                        {formatSecondary(group.subtotalGbp)}
+                      </p>
+                    )}
                   </div>
                   {isOpen ? (
                     <ChevronUp className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
@@ -688,9 +714,11 @@ export function BudgetTab() {
                     <p className="text-[14px] font-medium text-[#143B2B]">
                       {formatPrimary(group.subtotalGbp)}
                     </p>
-                    <p className="text-[10.5px] font-light text-[#5F7067]">
-                      {formatSecondary(group.subtotalGbp)}
-                    </p>
+                    {!sameCurrency && (
+                      <p className="text-[10.5px] font-light text-[#5F7067]">
+                        {formatSecondary(group.subtotalGbp)}
+                      </p>
+                    )}
                   </div>
                   {isOpen ? (
                     <ChevronUp className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
@@ -765,9 +793,11 @@ export function BudgetTab() {
                     <p className="text-[14px] font-medium text-[#143B2B]">
                       {formatPrimary(group.subtotalGbp)}
                     </p>
-                    <p className="text-[10.5px] font-light text-[#5F7067]">
-                      {formatSecondary(group.subtotalGbp)}
-                    </p>
+                    {!sameCurrency && (
+                      <p className="text-[10.5px] font-light text-[#5F7067]">
+                        {formatSecondary(group.subtotalGbp)}
+                      </p>
+                    )}
                   </div>
                   {isOpen ? (
                     <ChevronUp className="h-4 w-4 stroke-[1.5] text-[#B39258]" />

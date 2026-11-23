@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Trash2, X } from 'lucide-react';
+import { getCurrencyChipLabel } from '../data/currencies';
 import { TRIP_DAYS } from '../data/days';
 import { PAYMENT_METHODS } from '../data/expenses';
 import { getCategoryLabel, getDayLabel, UI_TEXT } from '../i18n/translations';
@@ -23,6 +24,11 @@ export function ExpenseModal({
 }: ExpenseModalProps) {
   const { lang, state } = useTrip();
   const t = UI_TEXT[lang];
+  const tripCurrencyChip = getCurrencyChipLabel(state.currencies.tripCurrency);
+  const amountFieldLabel =
+    lang === 'fr'
+      ? `Montant (${tripCurrencyChip}) *`
+      : `Amount (${tripCurrencyChip}) *`;
 
   const [dayId, setDayId] = useState(initialExpense?.dayId ?? defaultDayId);
   const [title, setTitle] = useState(initialExpense?.title ?? '');
@@ -136,7 +142,7 @@ export function ExpenseModal({
                 htmlFor="expense-amount-input"
                 className="mb-1 block text-[11px] font-normal uppercase tracking-wider text-[#5F7067]"
               >
-                {t.budget.amountField}
+                {amountFieldLabel}
               </label>
               <input
                 id="expense-amount-input"

@@ -6,6 +6,7 @@ import {
   ChevronDown,
   ChevronUp,
   Cloud,
+  Coins,
   Copy,
   Download,
   ExternalLink,
@@ -26,6 +27,12 @@ import {
   Users,
 } from 'lucide-react';
 import {
+  CURRENCY_OPTIONS,
+  formatCurrencyAmount,
+  getApproxRate,
+  getCurrencyChipLabel,
+} from '../data/currencies';
+import {
   ACCOMMODATION_INFO,
   FLIGHT_INFO,
   SUPABASE_AUTH_SQL_SNIPPET,
@@ -35,7 +42,7 @@ import {
 import { UI_TEXT } from '../i18n/translations';
 import { useTrip } from '../store/TripContext';
 import { isSupabaseConfigured } from '../store/sync';
-import type { ChecklistItem, MemberRole } from '../types/trip';
+import type { ChecklistItem, CurrencyCode, MemberRole } from '../types/trip';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -47,10 +54,11 @@ type SectionKey =
   | 'home'
   | 'th'
   | 'checklist'
-  | 'account'
+  | 'currencies'
   | 'people'
-  | 'sync'
   | 'share'
+  | 'account'
+  | 'sync'
   | 'pwa';
 
 const SUPABASE_SQL_EDITOR_URL =
@@ -78,6 +86,7 @@ export function InfosTab() {
     toggleChecklistItem,
     addChecklistItem,
     deleteChecklistItem,
+    updateCurrencies,
     addPerson,
     removePerson,
     setFamilyCode,
@@ -88,6 +97,11 @@ export function InfosTab() {
   } = useTrip();
 
   const t = UI_TEXT[lang];
+  const locale = lang === 'fr' ? 'fr-FR' : 'en-GB';
+
+  const { tripCurrency, homeCurrency } = state.currencies;
+  const sameCurrency = tripCurrency === homeCurrency;
+  const activeRate = sameCurrency ? 1 : state.rates.madPerGbp;
 
   // All dropdowns closed by default
   const [openSections, setOpenSections] = useState<Record<SectionKey, boolean>>({
@@ -95,10 +109,11 @@ export function InfosTab() {
     home: false,
     th: false,
     checklist: false,
-    account: false,
+    currencies: false,
     people: false,
-    sync: false,
     share: false,
+    account: false,
+    sync: false,
     pwa: false,
   });
 
@@ -108,6 +123,7 @@ export function InfosTab() {
   const [copiedAuthSql, setCopiedAuthSql] = useState(false);
   const [newCheckLabel, setNewCheckLabel] = useState('');
   const [newPersonName, setNewPersonName] = useState('');
+  const [rateInput, setRateInput] = useState(String(activeRate));
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<MemberRole>('viewer');
   const [accountActionBusy, setAccountActionBusy] = useState(false);
@@ -127,6 +143,10 @@ export function InfosTab() {
   }, [syncStatus.familyCode]);
 
   useEffect(() => {
+    setRateInput(String(sameCurrency ? 1 : state.rates.madPerGbp));
+  }, [state.rates.madPerGbp, sameCurrency]);
+
+  useEffect(() => {
     const handler = (e: Event) => {
       e.preventDefault();
       setInstallPrompt(e as BeforeInstallPromptEvent);
@@ -139,6 +159,32 @@ export function InfosTab() {
     setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
+  const handleTripCurrencyChange = (nextTrip: CurrencyCode) => {
+    if (!canEdit) return;
+    const nextRate = getApproxRate(nextTrip, homeCurrency);
+    updateCurrencies({ tripCurrency: nextTrip, homeCurrency }, nextRate);
+    setRateInput(String(nextRate));
+  };
+
+  const handleHomeCurrencyChange = (nextHome: CurrencyCode) => {
+    if (!canEdit) return;
+    const nextRate = getApproxRate(tripCurrency, nextHome);
+    updateCurrencies({ tripCurrency, homeCurrency: nextHome }, nextRate);
+    setRateInput(String(nextRate));
+  };
+
+  const handleRateInputChange = (raw: string) => {
+    setRateInput(raw);
+    const parsed = Number(raw.replace(',', '.'));
+    if (!Number.isNaN(parsed) && parsed > 0) {
+      updateCurrencies(state.currencies, parsed);
+    }
+  };
+
+  const formattedRatePreview = activeRate.toLocaleString(locale, {
+    maximumFractionDigits: activeRate < 1 ? 4 : 2,
+  });
+
   const copyText = async (text: string, onSuccess: () => void) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -149,8 +195,16 @@ export function InfosTab() {
   };
 
   const buildWhatsappSummary = () => {
-    const totalGbp = state.expenses.reduce((s, e) => s + e.amountGbp, 0);
-    const totalMad = Math.round(totalGbp * state.rates.madPerGbp);
+    const totalTrip = state.expenses.reduce((s, e) => s + e.amountGbp, 0);
+    const totalTripFormatted = formatCurrencyAmount(totalTrip, tripCurrency, locale);
+    const budgetLine = sameCurrency
+      ? `Budget estimé : ${totalTripFormatted}`
+      : `Budget estimé : ${totalTripFormatted} (~${formatCurrencyAmount(
+          totalTrip * activeRate,
+          homeCurrency,
+          locale
+        )})`;
+
     return [
       'Londres en Famille — Noël 2026 (22 déc. → 1er jan.)',
       `Aller RAM AT800 : 22 déc. CMN T1 13h05 → LHR T4 15h25`,
@@ -158,7 +212,7 @@ export function InfosTab() {
       `Appartement : ${ACCOMMODATION_INFO.fullAddress}`,
       `Tower Hamlets £1 : 27 déc. (Tour de Londres + Tower Bridge)`,
       `1er jan. : Piccadilly Line depuis Hyde Park Corner vers 13h45 (zéro taxi)`,
-      `Budget estimé : £${totalGbp.toFixed(0)} (~${totalMad.toLocaleString('fr-FR')} MAD)`,
+      budgetLine,
     ].join('\n');
   };
 
@@ -536,15 +590,356 @@ export function InfosTab() {
       </div>
 
       {/* ================================================= */}
-      {/* SECTION 2 : RÉGLAGES                              */}
+      {/* SECTION 2 : RÉGLAGES DU VOYAGE                    */}
       {/* ================================================= */}
-      <div id="infos-section-settings" className="space-y-3.5 pt-2">
+      <div id="infos-section-trip-settings" className="space-y-3.5 pt-2">
         <div>
           <span className="text-[11px] font-normal uppercase tracking-[0.16em] text-[#B39258]">
-            {t.infos.settingsEyebrow}
+            {t.infos.tripSettingsEyebrow}
           </span>
           <h2 className="font-editorial mt-1 text-[28px] font-normal leading-tight text-[#143B2B]">
-            {t.infos.settingsTitle}
+            {t.infos.tripSettingsTitle}
+          </h2>
+        </div>
+
+        {/* 1. Devises du voyage */}
+        <article className="ivy-card overflow-hidden rounded-2xl">
+          <button
+            type="button"
+            id="infos-toggle-currencies"
+            onClick={() => toggleSection('currencies')}
+            className="flex w-full items-center justify-between gap-2 px-4 py-3.5 text-left"
+          >
+            <div className="flex items-center gap-2.5">
+              <Coins className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+              <h3 className="font-editorial text-[21px] font-normal text-[#143B2B]">
+                {t.infos.currenciesTitle}
+              </h3>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-light tabular-nums text-[#5F7067]">
+                {tripCurrency} · {homeCurrency}
+              </span>
+              {openSections.currencies ? (
+                <ChevronUp className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+              ) : (
+                <ChevronDown className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+              )}
+            </div>
+          </button>
+
+          {openSections.currencies && (
+            <div className="space-y-3.5 border-t border-[#F2EDE4] px-4 py-3.5 text-[12.5px] font-light text-[#5F7067]">
+              <p className="leading-relaxed">{t.infos.currenciesDesc}</p>
+
+              <div className="space-y-3">
+                <div>
+                  <label
+                    htmlFor="trip-currency-select"
+                    className="mb-1 block text-[11px] font-normal uppercase tracking-wider text-[#5F7067]"
+                  >
+                    {t.infos.tripCurrencyLabel}
+                  </label>
+                  <select
+                    id="trip-currency-select"
+                    value={tripCurrency}
+                    disabled={!canEdit}
+                    onChange={(e) =>
+                      handleTripCurrencyChange(e.target.value as CurrencyCode)
+                    }
+                    className="w-full rounded-xl border border-[#ECE7DE] bg-[#FAF8F4] px-3 py-2 text-[12.5px] font-normal text-[#143B2B] focus:border-[#143B2B] focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {CURRENCY_OPTIONS.map((opt) => (
+                      <option key={opt.code} value={opt.code}>
+                        {opt.symbol === opt.code
+                          ? `${opt.code} — ${lang === 'fr' ? opt.labelFr : opt.labelEn}`
+                          : `${opt.code} (${opt.symbol}) — ${
+                              lang === 'fr' ? opt.labelFr : opt.labelEn
+                            }`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="home-currency-select"
+                    className="mb-1 block text-[11px] font-normal uppercase tracking-wider text-[#5F7067]"
+                  >
+                    {t.infos.homeCurrencyLabel}
+                  </label>
+                  <select
+                    id="home-currency-select"
+                    value={homeCurrency}
+                    disabled={!canEdit}
+                    onChange={(e) =>
+                      handleHomeCurrencyChange(e.target.value as CurrencyCode)
+                    }
+                    className="w-full rounded-xl border border-[#ECE7DE] bg-[#FAF8F4] px-3 py-2 text-[12.5px] font-normal text-[#143B2B] focus:border-[#143B2B] focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {CURRENCY_OPTIONS.map((opt) => (
+                      <option key={opt.code} value={opt.code}>
+                        {opt.symbol === opt.code
+                          ? `${opt.code} — ${lang === 'fr' ? opt.labelFr : opt.labelEn}`
+                          : `${opt.code} (${opt.symbol}) — ${
+                              lang === 'fr' ? opt.labelFr : opt.labelEn
+                            }`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="rounded-xl border border-[#ECE7DE] bg-[#FAF8F4] px-3 py-2.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <label
+                      htmlFor="trip-exchange-rate-input"
+                      className="text-[11px] font-normal uppercase tracking-wider text-[#5F7067]"
+                    >
+                      {t.infos.exchangeRateLabel}
+                    </label>
+                    <input
+                      id="trip-exchange-rate-input"
+                      type="number"
+                      step="any"
+                      min="0.0001"
+                      value={rateInput}
+                      disabled={!canEdit || sameCurrency}
+                      onChange={(e) => handleRateInputChange(e.target.value)}
+                      className="w-24 rounded-lg border border-[#ECE7DE] bg-white px-2.5 py-1.5 text-right text-[13px] font-normal tabular-nums text-[#143B2B] focus:border-[#143B2B] focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                    />
+                  </div>
+                  <p
+                    id="trip-exchange-rate-preview"
+                    className="mt-1.5 text-[11.5px] font-normal tabular-nums text-[#83662F]"
+                  >
+                    1 {getCurrencyChipLabel(tripCurrency)} = {formattedRatePreview}{' '}
+                    {homeCurrency}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </article>
+
+        {/* 2. Voyageurs (Budget) */}
+        <article className="ivy-card overflow-hidden rounded-2xl">
+          <button
+            type="button"
+            id="infos-toggle-people"
+            onClick={() => toggleSection('people')}
+            className="flex w-full items-center justify-between gap-2 px-4 py-3.5 text-left"
+          >
+            <div className="flex items-center gap-2.5">
+              <Users className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+              <h3 className="font-editorial text-[21px] font-normal text-[#143B2B]">
+                {t.infos.peopleTitle}
+              </h3>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[11.5px] font-light tabular-nums text-[#5F7067]">
+                {state.people.length}
+              </span>
+              {openSections.people ? (
+                <ChevronUp className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+              ) : (
+                <ChevronDown className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+              )}
+            </div>
+          </button>
+
+          {openSections.people && (
+            <div className="space-y-3 border-t border-[#F2EDE4] px-4 py-3.5">
+              <p className="text-[12.5px] font-light leading-relaxed text-[#5F7067]">
+                {t.infos.peopleDesc}
+              </p>
+
+              <div className="flex flex-wrap gap-2">
+                {state.people.map((person) => (
+                  <span
+                    key={person}
+                    className={`inline-flex items-center gap-1.5 rounded-full border border-[#ECE7DE] bg-[#FAF8F4] py-1 pl-3 text-[12.5px] font-normal text-[#143B2B] ${
+                      canEdit ? 'pr-2' : 'pr-3'
+                    }`}
+                  >
+                    <span>{person}</span>
+                    {canEdit && (
+                      <button
+                        type="button"
+                        onClick={() => removePerson(person)}
+                        aria-label={`Remove ${person}`}
+                        className="rounded-full p-0.5 text-[#5F7067]/70 hover:text-[#7C2D36]"
+                      >
+                        <Trash2 className="h-3 w-3 stroke-[1.5]" />
+                      </button>
+                    )}
+                  </span>
+                ))}
+              </div>
+
+              {canEdit && (
+                <form onSubmit={handlePersonSubmit} className="flex gap-2 pt-1">
+                  <input
+                    id="new-person-input"
+                    type="text"
+                    value={newPersonName}
+                    onChange={(e) => setNewPersonName(e.target.value)}
+                    placeholder={t.infos.peoplePlaceholder}
+                    className="min-w-0 flex-1 rounded-xl border border-[#ECE7DE] bg-[#FAF8F4] px-3 py-2 text-[12.5px] font-light text-[#143B2B] focus:border-[#143B2B] focus:outline-none"
+                  />
+                  <button
+                    id="add-person-submit"
+                    type="submit"
+                    aria-label={t.add}
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#143B2B] text-[#FAF8F4]"
+                  >
+                    <Plus className="h-4 w-4 stroke-[1.6]" />
+                  </button>
+                </form>
+              )}
+            </div>
+          )}
+        </article>
+
+        {/* 3. Partage & Sauvegarde */}
+        <article className="ivy-card overflow-hidden rounded-2xl">
+          <button
+            type="button"
+            id="infos-toggle-share"
+            onClick={() => toggleSection('share')}
+            className="flex w-full items-center justify-between gap-2 px-4 py-3.5 text-left"
+          >
+            <div className="flex items-center gap-2.5">
+              <Share2 className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+              <h3 className="font-editorial text-[21px] font-normal text-[#143B2B]">
+                {t.infos.shareTitle}
+              </h3>
+            </div>
+            {openSections.share ? (
+              <ChevronUp className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+            ) : (
+              <ChevronDown className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+            )}
+          </button>
+
+          {openSections.share && (
+            <div className="space-y-2.5 border-t border-[#F2EDE4] px-4 py-3.5">
+              <div className="grid grid-cols-2 gap-2">
+                <a
+                  href={`https://wa.me/?text=${encodeURIComponent(
+                    buildWhatsappSummary()
+                  )}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#143B2B] py-2.5 text-[12px] font-normal text-[#FAF8F4]"
+                >
+                  <Share2 className="h-3.5 w-3.5 stroke-[1.5] text-[#D7BD8A]" />
+                  <span>WhatsApp</span>
+                </a>
+                <button
+                  type="button"
+                  onClick={() =>
+                    void copyText(buildWhatsappSummary(), () => {
+                      setCopiedWhatsapp(true);
+                      window.setTimeout(() => setCopiedWhatsapp(false), 1800);
+                    })
+                  }
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#ECE7DE] bg-[#FAF8F4] py-2.5 text-[12px] font-normal text-[#143B2B]"
+                >
+                  <Copy className="h-3.5 w-3.5 stroke-[1.5] text-[#B39258]" />
+                  <span>
+                    {copiedWhatsapp ? t.infos.copied : t.infos.copySummary}
+                  </span>
+                </button>
+              </div>
+
+              <div className={canEdit ? 'grid grid-cols-2 gap-2' : ''}>
+                <button
+                  type="button"
+                  onClick={handleExportJson}
+                  className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-[#ECE7DE] bg-white py-2 text-[12px] font-light text-[#143B2B]"
+                >
+                  <Download className="h-3.5 w-3.5 stroke-[1.5] text-[#B39258]" />
+                  <span>{t.infos.exportJson}</span>
+                </button>
+                {canEdit && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#ECE7DE] bg-white py-2 text-[12px] font-light text-[#143B2B]"
+                    >
+                      <Upload className="h-3.5 w-3.5 stroke-[1.5] text-[#B39258]" />
+                      <span>{t.infos.importJson}</span>
+                    </button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="application/json,.json"
+                      onChange={handleImportFile}
+                      className="hidden"
+                    />
+                  </>
+                )}
+              </div>
+
+              {importFeedback && (
+                <p className="text-[12px] font-light text-[#143B2B]">
+                  {importFeedback}
+                </p>
+              )}
+
+              {canEdit && (tripRole === 'admin' || tripRole === 'unclaimed') && (
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-[11.5px] font-light text-[#5F7067]">
+                    {t.infos.resetLabel}
+                  </span>
+                  {confirmReset ? (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setConfirmReset(false)}
+                        className="text-[11.5px] font-light text-[#5F7067]"
+                      >
+                        {t.cancel}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          resetTripState();
+                          setConfirmReset(false);
+                        }}
+                        className="rounded-lg bg-[#7C2D36] px-2.5 py-1 text-[11px] font-normal text-white"
+                      >
+                        {t.infos.confirm}
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmReset(true)}
+                      className="inline-flex items-center gap-1 text-[11.5px] font-light text-[#7C2D36]"
+                    >
+                      <RotateCcw className="h-3 w-3 stroke-[1.5]" />
+                      <span>{t.infos.resetBtn}</span>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </article>
+      </div>
+
+      {/* ================================================= */}
+      {/* SECTION 3 : RÉGLAGES DE L'APPLICATION             */}
+      {/* ================================================= */}
+      <div id="infos-section-app-settings" className="space-y-3.5 pt-2">
+        <div>
+          <span className="text-[11px] font-normal uppercase tracking-[0.16em] text-[#B39258]">
+            {t.infos.appSettingsEyebrow}
+          </span>
+          <h2 className="font-editorial mt-1 text-[28px] font-normal leading-tight text-[#143B2B]">
+            {t.infos.appSettingsTitle}
           </h2>
         </div>
 
@@ -887,85 +1282,6 @@ export function InfosTab() {
           </article>
         )}
 
-        {/* 2. Voyageurs (pour Budget -> Par voyageur) */}
-        <article className="ivy-card overflow-hidden rounded-2xl">
-          <button
-            type="button"
-            id="infos-toggle-people"
-            onClick={() => toggleSection('people')}
-            className="flex w-full items-center justify-between gap-2 px-4 py-3.5 text-left"
-          >
-            <div className="flex items-center gap-2.5">
-              <Users className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
-              <h3 className="font-editorial text-[21px] font-normal text-[#143B2B]">
-                {t.infos.peopleTitle}
-              </h3>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[11.5px] font-light tabular-nums text-[#5F7067]">
-                {state.people.length}
-              </span>
-              {openSections.people ? (
-                <ChevronUp className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
-              ) : (
-                <ChevronDown className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
-              )}
-            </div>
-          </button>
-
-          {openSections.people && (
-            <div className="space-y-3 border-t border-[#F2EDE4] px-4 py-3.5">
-              <p className="text-[12.5px] font-light leading-relaxed text-[#5F7067]">
-                {t.infos.peopleDesc}
-              </p>
-
-              <div className="flex flex-wrap gap-2">
-                {state.people.map((person) => (
-                  <span
-                    key={person}
-                    className={`inline-flex items-center gap-1.5 rounded-full border border-[#ECE7DE] bg-[#FAF8F4] py-1 pl-3 text-[12.5px] font-normal text-[#143B2B] ${
-                      canEdit ? 'pr-2' : 'pr-3'
-                    }`}
-                  >
-                    <span>{person}</span>
-                    {canEdit && (
-                      <button
-                        type="button"
-                        onClick={() => removePerson(person)}
-                        aria-label={`Remove ${person}`}
-                        className="rounded-full p-0.5 text-[#5F7067]/70 hover:text-[#7C2D36]"
-                      >
-                        <Trash2 className="h-3 w-3 stroke-[1.5]" />
-                      </button>
-                    )}
-                  </span>
-                ))}
-              </div>
-
-              {canEdit && (
-                <form onSubmit={handlePersonSubmit} className="flex gap-2 pt-1">
-                  <input
-                    id="new-person-input"
-                    type="text"
-                    value={newPersonName}
-                    onChange={(e) => setNewPersonName(e.target.value)}
-                    placeholder={t.infos.peoplePlaceholder}
-                    className="min-w-0 flex-1 rounded-xl border border-[#ECE7DE] bg-[#FAF8F4] px-3 py-2 text-[12.5px] font-light text-[#143B2B] focus:border-[#143B2B] focus:outline-none"
-                  />
-                  <button
-                    id="add-person-submit"
-                    type="submit"
-                    aria-label={t.add}
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#143B2B] text-[#FAF8F4]"
-                  >
-                    <Plus className="h-4 w-4 stroke-[1.6]" />
-                  </button>
-                </form>
-              )}
-            </div>
-          )}
-        </article>
-
         {/* 2. Synchro multi-appareils */}
         <article className="ivy-card overflow-hidden rounded-2xl">
           <button
@@ -1081,136 +1397,7 @@ export function InfosTab() {
           )}
         </article>
 
-        {/* 3. Partage & Sauvegarde */}
-        <article className="ivy-card overflow-hidden rounded-2xl">
-          <button
-            type="button"
-            id="infos-toggle-share"
-            onClick={() => toggleSection('share')}
-            className="flex w-full items-center justify-between gap-2 px-4 py-3.5 text-left"
-          >
-            <div className="flex items-center gap-2.5">
-              <Share2 className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
-              <h3 className="font-editorial text-[21px] font-normal text-[#143B2B]">
-                {t.infos.shareTitle}
-              </h3>
-            </div>
-            {openSections.share ? (
-              <ChevronUp className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
-            ) : (
-              <ChevronDown className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
-            )}
-          </button>
-
-          {openSections.share && (
-            <div className="space-y-2.5 border-t border-[#F2EDE4] px-4 py-3.5">
-              <div className="grid grid-cols-2 gap-2">
-                <a
-                  href={`https://wa.me/?text=${encodeURIComponent(
-                    buildWhatsappSummary()
-                  )}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#143B2B] py-2.5 text-[12px] font-normal text-[#FAF8F4]"
-                >
-                  <Share2 className="h-3.5 w-3.5 stroke-[1.5] text-[#D7BD8A]" />
-                  <span>WhatsApp</span>
-                </a>
-                <button
-                  type="button"
-                  onClick={() =>
-                    void copyText(buildWhatsappSummary(), () => {
-                      setCopiedWhatsapp(true);
-                      window.setTimeout(() => setCopiedWhatsapp(false), 1800);
-                    })
-                  }
-                  className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#ECE7DE] bg-[#FAF8F4] py-2.5 text-[12px] font-normal text-[#143B2B]"
-                >
-                  <Copy className="h-3.5 w-3.5 stroke-[1.5] text-[#B39258]" />
-                  <span>
-                    {copiedWhatsapp ? t.infos.copied : t.infos.copySummary}
-                  </span>
-                </button>
-              </div>
-
-              <div className={canEdit ? 'grid grid-cols-2 gap-2' : ''}>
-                <button
-                  type="button"
-                  onClick={handleExportJson}
-                  className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-[#ECE7DE] bg-white py-2 text-[12px] font-light text-[#143B2B]"
-                >
-                  <Download className="h-3.5 w-3.5 stroke-[1.5] text-[#B39258]" />
-                  <span>{t.infos.exportJson}</span>
-                </button>
-                {canEdit && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#ECE7DE] bg-white py-2 text-[12px] font-light text-[#143B2B]"
-                    >
-                      <Upload className="h-3.5 w-3.5 stroke-[1.5] text-[#B39258]" />
-                      <span>{t.infos.importJson}</span>
-                    </button>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="application/json,.json"
-                      onChange={handleImportFile}
-                      className="hidden"
-                    />
-                  </>
-                )}
-              </div>
-
-              {importFeedback && (
-                <p className="text-[12px] font-light text-[#143B2B]">
-                  {importFeedback}
-                </p>
-              )}
-
-              {canEdit && (tripRole === 'admin' || tripRole === 'unclaimed') && (
-                <div className="flex items-center justify-between pt-1">
-                  <span className="text-[11.5px] font-light text-[#5F7067]">
-                    {t.infos.resetLabel}
-                  </span>
-                  {confirmReset ? (
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setConfirmReset(false)}
-                        className="text-[11.5px] font-light text-[#5F7067]"
-                      >
-                        {t.cancel}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          resetTripState();
-                          setConfirmReset(false);
-                        }}
-                        className="rounded-lg bg-[#7C2D36] px-2.5 py-1 text-[11px] font-normal text-white"
-                      >
-                        {t.infos.confirm}
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setConfirmReset(true)}
-                      className="inline-flex items-center gap-1 text-[11.5px] font-light text-[#7C2D36]"
-                    >
-                      <RotateCcw className="h-3 w-3 stroke-[1.5]" />
-                      <span>{t.infos.resetBtn}</span>
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-        </article>
-
-        {/* 4. Installer sur Android */}
+        {/* 3. Installer sur Android */}
         <article className="ivy-card overflow-hidden rounded-2xl">
           <button
             type="button"

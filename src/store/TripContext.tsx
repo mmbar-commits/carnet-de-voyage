@@ -21,6 +21,7 @@ import type {
   SyncStatus,
   TabId,
   TripAccessRole,
+  TripCurrencies,
   TripMember,
   TripState,
   TripStep,
@@ -33,6 +34,7 @@ import {
   loadLanguage,
   loadSelectedDay,
   loadTripState,
+  migrateTripState,
   saveFamilyCode,
   saveLanguage,
   saveSelectedDay,
@@ -138,6 +140,7 @@ interface TripContextValue {
   updateExpense: (expenseId: string, patch: Partial<Omit<Expense, 'id'>>) => void;
   deleteExpense: (expenseId: string) => void;
   updateRates: (rates: ExchangeRates) => void;
+  updateCurrencies: (currencies: TripCurrencies, rate?: number) => void;
   addPerson: (name: string) => void;
   removePerson: (name: string) => void;
 
@@ -839,9 +842,29 @@ export function TripProvider({ children }: { children: ReactNode }) {
       mutate((prev) => ({
         ...prev,
         rates: {
-          madPerGbp: Math.max(0.01, rates.madPerGbp),
-          eurPerGbp: Math.max(0.01, rates.eurPerGbp),
+          madPerGbp: Math.max(0.0001, rates.madPerGbp),
+          eurPerGbp: Math.max(0.0001, rates.eurPerGbp),
         },
+      }));
+    },
+    [mutate]
+  );
+
+  const updateCurrencies = useCallback(
+    (currencies: TripCurrencies, rate?: number) => {
+      mutate((prev) => ({
+        ...prev,
+        currencies: {
+          tripCurrency: currencies.tripCurrency,
+          homeCurrency: currencies.homeCurrency,
+        },
+        rates:
+          typeof rate === 'number' && !Number.isNaN(rate) && rate > 0
+            ? {
+                ...prev.rates,
+                madPerGbp: Math.max(0.0001, rate),
+              }
+            : prev.rates,
       }));
     },
     [mutate]
@@ -971,8 +994,9 @@ export function TripProvider({ children }: { children: ReactNode }) {
           error: 'Le fichier JSON ne correspond pas au format Londres Noël 2026.',
         };
       }
+      const migrated = migrateTripState(parsed);
       setState({
-        ...parsed,
+        ...migrated,
         version: STATE_VERSION,
         updatedAt: new Date().toISOString(),
       });
@@ -1039,6 +1063,7 @@ export function TripProvider({ children }: { children: ReactNode }) {
       updateExpense,
       deleteExpense,
       updateRates,
+      updateCurrencies,
       addPerson,
       removePerson,
       toggleChecklistItem,
@@ -1096,6 +1121,7 @@ export function TripProvider({ children }: { children: ReactNode }) {
       updateExpense,
       deleteExpense,
       updateRates,
+      updateCurrencies,
       addPerson,
       removePerson,
       toggleChecklistItem,

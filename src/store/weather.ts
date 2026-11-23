@@ -1,4 +1,4 @@
-import { TRIP_DAYS } from '../data/days';
+import type { TripDay } from '../types/trip';
 
 export type WeatherKind =
   | 'sun'
@@ -20,13 +20,18 @@ export interface DayWeather {
   updatedAt?: string;
 }
 
-export const WEATHER_STORAGE_KEY = 'londres-noel-2026:weather:v1';
+export interface WeatherTripMeta {
+  lat: number;
+  lng: number;
+  timezone: string;
+  isLondonDefault?: boolean;
+}
+
 export const WEATHER_TTL_MS = 2 * 60 * 60 * 1000;
 
-const OPEN_METEO_URL =
-  'https://api.open-meteo.com/v1/forecast?latitude=51.5072&longitude=-0.1276&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Europe%2FLondon&forecast_days=16';
-
-const TRIP_DAY_IDS = new Set(TRIP_DAYS.map((day) => day.id));
+export function getWeatherStorageKey(tripId: string): string {
+  return `londres-noel-2026:weather:v2:${tripId || 'LDN-NOEL-2026'}`;
+}
 
 const VALID_KINDS: ReadonlySet<WeatherKind> = new Set([
   'sun',
@@ -54,7 +59,7 @@ interface OpenMeteoDailyResponse {
   };
 }
 
-const SEASONAL_DEFAULTS: Record<string, DayWeather> = {
+const LONDON_SEASONAL_DEFAULTS: Record<string, DayWeather> = {
   '2026-12-22': {
     dayId: '2026-12-22',
     kind: 'partly_cloudy',
@@ -157,10 +162,16 @@ export function mapWmoToKind(code: number): WeatherKind {
   return 'cloudy';
 }
 
-export function getDefaultSeasonalWeather(): Record<string, DayWeather> {
+export function getDefaultSeasonalWeather(
+  days: TripDay[],
+  meta: WeatherTripMeta
+): Record<string, DayWeather> {
+  if (!meta.isLondonDefault) {
+    return {};
+  }
   const result: Record<string, DayWeather> = {};
-  for (const day of TRIP_DAYS) {
-    const preset = SEASONAL_DEFAULTS[day.id];
+  for (const day of days) {
+    const preset = LONDON_SEASONAL_DEFAULTS[day.id];
     result[day.id] = preset
       ? { ...preset }
       : {
@@ -175,12 +186,15 @@ export function getDefaultSeasonalWeather(): Record<string, DayWeather> {
   return result;
 }
 
-function isValidDayWeather(value: unknown): value is DayWeather {
+function isValidDayWeather(
+  value: unknown,
+  validDayIds: ReadonlySet<string>
+): value is DayWeather {
   if (!value || typeof value !== 'object') return false;
   const candidate = value as Partial<DayWeather>;
   return (
     typeof candidate.dayId === 'string' &&
-    TRIP_DAY_IDS.has(candidate.dayId) &&
+    validDayIds.has(candidate.dayId) &&
     typeof candidate.kind === 'string' &&
     VALID_KINDS.has(candidate.kind as WeatherKind) &&
     typeof candidate.minC === 'number' &&
@@ -193,9 +207,12 @@ function isValidDayWeather(value: unknown): value is DayWeather {
   );
 }
 
-function readWeatherCache(): WeatherCachePayload | null {
+function readWeatherCache(
+  tripId: string,
+  validDayIds: ReadonlySet<string>
+): WeatherCachePayload | null {
   try {
-    const raw = window.localStorage.getItem(WEATHER_STORAGE_KEY);
+    const raw = window.localStorage.getItem(getWeatherStorageKey(tripId));
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<WeatherCachePayload>;
     if (
@@ -208,7 +225,7 @@ function readWeatherCache(): WeatherCachePayload | null {
     }
     const forecasts: Record<string, DayWeather> = {};
     for (const [dayId, entry] of Object.entries(parsed.forecasts)) {
-      if (isValidDayWeather(entry) && entry.dayId === dayId) {
+      if (isValidDayWeather(entry, validDayIds) && entry.dayId === dayId) {
         forecasts[dayId] = entry;
       }
     }
@@ -218,26 +235,39 @@ function readWeatherCache(): WeatherCachePayload | null {
   }
 }
 
-function writeWeatherCache(payload: WeatherCachePayload): void {
+function writeWeatherCache(tripId: string, payload: WeatherCachePayload): void {
   try {
-    window.localStorage.setItem(WEATHER_STORAGE_KEY, JSON.stringify(payload));
+    window.localStorage.setItem(
+      getWeatherStorageKey(tripId),
+      JSON.stringify(payload)
+    );
   } catch {
     // Ignore storage quota or private browsing errors gracefully
   }
 }
 
-export function isWeatherCacheStale(now = Date.now()): boolean {
-  const cache = readWeatherCache();
+export function isWeatherCacheStale(
+  tripId: string,
+  days: TripDay[],
+  now = Date.now()
+): boolean {
+  const validDayIds = new Set(days.map((d) => d.id));
+  const cache = readWeatherCache(tripId, validDayIds);
   if (!cache) return true;
   return now - cache.fetchedAt >= WEATHER_TTL_MS;
 }
 
-export function loadCachedOrSeasonalWeather(): Record<string, DayWeather> {
-  const merged = getDefaultSeasonalWeather();
-  const cache = readWeatherCache();
+export function loadCachedOrSeasonalWeather(
+  tripId: string,
+  days: TripDay[],
+  meta: WeatherTripMeta
+): Record<string, DayWeather> {
+  const validDayIds = new Set(days.map((d) => d.id));
+  const merged = getDefaultSeasonalWeather(days, meta);
+  const cache = readWeatherCache(tripId, validDayIds);
   if (cache) {
     for (const [dayId, entry] of Object.entries(cache.forecasts)) {
-      if (TRIP_DAY_IDS.has(dayId)) {
+      if (validDayIds.has(dayId)) {
         merged[dayId] = entry;
       }
     }
@@ -246,10 +276,27 @@ export function loadCachedOrSeasonalWeather(): Record<string, DayWeather> {
 }
 
 export async function fetchOpenMeteoWeather(
+  tripId: string,
+  days: TripDay[],
+  meta: WeatherTripMeta,
   signal?: AbortSignal
 ): Promise<Record<string, DayWeather> | null> {
+  if (!Number.isFinite(meta.lat) || !Number.isFinite(meta.lng)) {
+    return null;
+  }
+
+  const validDayIds = new Set(days.map((d) => d.id));
+  const tz = meta.timezone?.trim() || 'auto';
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${encodeURIComponent(
+    String(meta.lat)
+  )}&longitude=${encodeURIComponent(
+    String(meta.lng)
+  )}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=${encodeURIComponent(
+    tz
+  )}&forecast_days=16`;
+
   try {
-    const response = await fetch(OPEN_METEO_URL, {
+    const response = await fetch(url, {
       method: 'GET',
       signal,
     });
@@ -263,7 +310,7 @@ export async function fetchOpenMeteoWeather(
     const forecasts: Record<string, DayWeather> = {};
 
     daily.time.forEach((dayId, idx) => {
-      if (!TRIP_DAY_IDS.has(dayId)) return;
+      if (!validDayIds.has(dayId)) return;
 
       const rawCode = daily.weather_code?.[idx];
       const rawMin = daily.temperature_2m_min?.[idx];
@@ -294,12 +341,12 @@ export async function fetchOpenMeteoWeather(
       };
     });
 
-    writeWeatherCache({
+    writeWeatherCache(tripId, {
       fetchedAt: Date.now(),
       forecasts,
     });
 
-    const merged = getDefaultSeasonalWeather();
+    const merged = getDefaultSeasonalWeather(days, meta);
     for (const [dayId, entry] of Object.entries(forecasts)) {
       merged[dayId] = entry;
     }

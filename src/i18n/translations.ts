@@ -52,6 +52,11 @@ export const UI_TEXT = {
       walkHint: 'Trajet à pied',
       transitHint: 'Trajet en métro',
       prompts: ['Mot d’Aya : «  »', 'Mot d’Adam : «  »', 'Coup de cœur : '],
+      genericPrompts: ['Coup de cœur : ', 'Bonne adresse : ', 'Souvenir du jour : '],
+      plannedStepsTitle: 'Au programme du jour',
+      noPlannedSteps: 'Aucune étape planifiée pour cette journée. Ajoutez vos envies dans le Planning.',
+      destinationMapTitle: 'Carte de la destination',
+      destinationMapHint: 'Point de repère principal',
     },
     activities: {
       eyebrow: 'Catalogue · Aya & Adam',
@@ -184,6 +189,24 @@ export const UI_TEXT = {
       peopleDesc:
         'Gérez la liste des voyageurs disponibles pour ventiler les dépenses du Budget.',
       peoplePlaceholder: 'Prénom du voyageur (ex. Grand-mère)...',
+      paymentsTitle: 'Moyens de paiement',
+      paymentsDesc:
+        'Personnalisez les cartes et moyens de paiement disponibles dans le Budget.',
+      paymentsPlaceholder: 'Ex. Visa Gold, Revolut, Espèces...',
+      tripDetailsTitle: 'Identité du voyage',
+      tripDetailsDesc:
+        'Modifiez le titre ou le sous-titre affiché dans l’en-tête de ce voyage.',
+      tripTitleLabel: 'Titre du voyage',
+      tripDestLabel: 'Destination',
+      tripSubtitleLabel: 'Sous-titre',
+      practicalPrefix: 'Pratique',
+      practicalNotesTitle: 'Notes pratiques',
+      practicalNotesEmpty:
+        'Ajoutez vos vols, hébergements, adresses ou codes d’accès importants.',
+      addPracticalNoteBtn: 'Ajouter une note',
+      noteTitlePlaceholder: 'Ex. Hôtel, Vols, Transfert...',
+      noteContentPlaceholder: 'Horaires, adresse, référence de réservation...',
+      noteMapsPlaceholder: 'Adresse Google Maps (optionnel)',
       syncTitle: 'Synchro multi-appareils',
       syncCloud: 'Cloud',
       syncLocal: 'Local',
@@ -206,6 +229,28 @@ export const UI_TEXT = {
       pwaInstallBtn: 'Installer LDN 26',
       pwaGuide:
         'Dans Chrome Android : touchez ⋮ puis Installer l’application. L’app reste 100 % accessible hors-ligne dans le métro.',
+    },
+    trips: {
+      eyebrow: 'Mes voyages',
+      title: 'Changer de séjour',
+      activeBadge: 'Actif',
+      newTripBtn: 'Nouveau voyage',
+      newTripTitle: 'Créer un nouveau voyage',
+      titleLabel: 'Titre du voyage',
+      titlePlaceholder: 'Ex. Rome en Famille',
+      destinationLabel: 'Destination *',
+      destinationPlaceholder: 'Ex. Rome, Tokyo, New York...',
+      quickCitiesLabel: 'Destinations rapides',
+      startDateLabel: 'Début',
+      endDateLabel: 'Fin',
+      tripCurrencyLabel: 'Devise sur place',
+      homeCurrencyLabel: 'Devise maison',
+      createBtn: 'Créer le voyage',
+      creatingBtn: 'Création...',
+      joinHeading: 'Rejoindre un voyage par code',
+      joinPlaceholder: 'Ex. ROME-2027-A3F9',
+      joinBtn: 'Rejoindre',
+      switchHint: 'Touchez un voyage pour l’ouvrir',
     },
     weather: {
       forecast: 'Prévision',
@@ -267,6 +312,11 @@ export const UI_TEXT = {
       walkHint: 'Walking route',
       transitHint: 'Tube route',
       prompts: ['Aya said: “ ”', 'Adam said: “ ”', 'Highlight: '],
+      genericPrompts: ['Highlight: ', 'Favourite spot: ', 'Memory of the day: '],
+      plannedStepsTitle: 'Today’s schedule',
+      noPlannedSteps: 'No steps planned for this day yet. Add ideas in the Plan tab.',
+      destinationMapTitle: 'Destination Map',
+      destinationMapHint: 'Main destination pin',
     },
     activities: {
       eyebrow: 'Catalogue · Aya & Adam',
@@ -399,6 +449,24 @@ export const UI_TEXT = {
       peopleDesc:
         'Manage the travellers available to tag and split Budget expenses.',
       peoplePlaceholder: 'Traveller name (e.g. Grandma)...',
+      paymentsTitle: 'Payment methods',
+      paymentsDesc:
+        'Customise the cards and payment methods available in Budget.',
+      paymentsPlaceholder: 'e.g. Visa Gold, Revolut, Cash...',
+      tripDetailsTitle: 'Trip details',
+      tripDetailsDesc:
+        'Edit the title or subtitle displayed in the header for this trip.',
+      tripTitleLabel: 'Trip title',
+      tripDestLabel: 'Destination',
+      tripSubtitleLabel: 'Subtitle',
+      practicalPrefix: 'Practical',
+      practicalNotesTitle: 'Practical notes',
+      practicalNotesEmpty:
+        'Add your flights, hotel address, booking codes or key local info.',
+      addPracticalNoteBtn: 'Add a note',
+      noteTitlePlaceholder: 'e.g. Hotel, Flights, Transfer...',
+      noteContentPlaceholder: 'Times, address, booking reference...',
+      noteMapsPlaceholder: 'Google Maps address (optional)',
       syncTitle: 'Multi-device sync',
       syncCloud: 'Cloud',
       syncLocal: 'Local',
@@ -421,6 +489,28 @@ export const UI_TEXT = {
       pwaInstallBtn: 'Install LDN 26',
       pwaGuide:
         'In Chrome Android: tap ⋮ then Install app. Works 100% offline in the London Underground.',
+    },
+    trips: {
+      eyebrow: 'My trips',
+      title: 'Switch trip',
+      activeBadge: 'Active',
+      newTripBtn: 'New trip',
+      newTripTitle: 'Create a new trip',
+      titleLabel: 'Trip title',
+      titlePlaceholder: 'e.g. Rome Family Trip',
+      destinationLabel: 'Destination *',
+      destinationPlaceholder: 'e.g. Rome, Tokyo, New York...',
+      quickCitiesLabel: 'Quick destinations',
+      startDateLabel: 'Start',
+      endDateLabel: 'End',
+      tripCurrencyLabel: 'Local currency',
+      homeCurrencyLabel: 'Home currency',
+      createBtn: 'Create trip',
+      creatingBtn: 'Creating...',
+      joinHeading: 'Join a trip by code',
+      joinPlaceholder: 'e.g. ROME-2027-A3F9',
+      joinBtn: 'Join',
+      switchHint: 'Tap a trip to open it',
     },
     weather: {
       forecast: 'Forecast',
@@ -458,16 +548,98 @@ const EN_DAY_DATES: Record<
   '2027-01-01': { wd: 'Fri', ds: '1 Jan', dl: 'Friday, 1 January 2027', wdf: 'Friday' },
 };
 
+function parseIsoUtc(iso: string): Date | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!m) return null;
+  const dt = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+  return Number.isNaN(dt.getTime()) ? null : dt;
+}
+
+function capitalize(str: string): string {
+  return str ? str.charAt(0).toUpperCase() + str.slice(1) : str;
+}
+
 export function getDayLabel(day: TripDay, lang: Language) {
-  if (lang === 'en' && EN_DAY_DATES[day.id]) {
-    const en = EN_DAY_DATES[day.id];
+  if (lang === 'en') {
+    if (EN_DAY_DATES[day.id]) {
+      const en = EN_DAY_DATES[day.id];
+      return {
+        weekdayShort: en.wd,
+        weekdayFull: en.wdf,
+        dateShort: en.ds,
+        dateLong: en.dl,
+      };
+    }
+    const dt = parseIsoUtc(day.id);
+    if (dt) {
+      const weekdayShort = new Intl.DateTimeFormat('en-GB', {
+        weekday: 'short',
+        timeZone: 'UTC',
+      }).format(dt);
+      const weekdayFull = new Intl.DateTimeFormat('en-GB', {
+        weekday: 'long',
+        timeZone: 'UTC',
+      }).format(dt);
+      const dayNum = dt.getUTCDate();
+      const monthShort = new Intl.DateTimeFormat('en-GB', {
+        month: 'short',
+        timeZone: 'UTC',
+      }).format(dt);
+      const monthLong = new Intl.DateTimeFormat('en-GB', {
+        month: 'long',
+        timeZone: 'UTC',
+      }).format(dt);
+      return {
+        weekdayShort,
+        weekdayFull,
+        dateShort: `${dayNum} ${monthShort}`,
+        dateLong: `${weekdayFull}, ${dayNum} ${monthLong} ${dt.getUTCFullYear()}`,
+      };
+    }
+  }
+
+  if (day.weekdayShort && day.dateShort && day.dateLong) {
     return {
-      weekdayShort: en.wd,
-      weekdayFull: en.wdf,
-      dateShort: en.ds,
-      dateLong: en.dl,
+      weekdayShort: day.weekdayShort,
+      weekdayFull: day.weekdayFull,
+      dateShort: day.dateShort,
+      dateLong: day.dateLong,
     };
   }
+
+  const dt = parseIsoUtc(day.id);
+  if (dt) {
+    const rawWd = capitalize(
+      new Intl.DateTimeFormat('fr-FR', {
+        weekday: 'short',
+        timeZone: 'UTC',
+      }).format(dt)
+    );
+    const weekdayShort = rawWd.endsWith('.') ? rawWd : `${rawWd}.`;
+    const weekdayFull = capitalize(
+      new Intl.DateTimeFormat('fr-FR', {
+        weekday: 'long',
+        timeZone: 'UTC',
+      }).format(dt)
+    );
+    const dayNum = dt.getUTCDate();
+    const dayStr = dayNum === 1 ? '1er' : String(dayNum);
+    const monthShort = new Intl.DateTimeFormat('fr-FR', {
+      month: 'short',
+      timeZone: 'UTC',
+    }).format(dt);
+    const monthLong = new Intl.DateTimeFormat('fr-FR', {
+      month: 'long',
+      timeZone: 'UTC',
+    }).format(dt);
+    return {
+      weekdayShort,
+      weekdayFull,
+      dateShort: `${dayStr} ${monthShort}`,
+      dateLong: `${weekdayFull} ${dayStr} ${monthLong} ${dt.getUTCFullYear()}`,
+    };
+  }
+
   return {
     weekdayShort: day.weekdayShort,
     weekdayFull: day.weekdayFull,

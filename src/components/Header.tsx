@@ -1,9 +1,19 @@
-import { Cloud, CloudOff, Eye, RefreshCw, User, UserCheck } from 'lucide-react';
+import {
+  ChevronDown,
+  Cloud,
+  CloudOff,
+  Eye,
+  RefreshCw,
+  User,
+  UserCheck,
+} from 'lucide-react';
+import { DEFAULT_LONDON_META } from '../data/tripFactory';
 import { UI_TEXT } from '../i18n/translations';
 import { useTrip } from '../store/TripContext';
 
 export function Header() {
   const {
+    state,
     lang,
     setLang,
     syncStatus,
@@ -13,36 +23,60 @@ export function Header() {
     previewReadOnly,
     setPreviewReadOnly,
     setAccountModalOpen,
+    setTripsModalOpen,
   } = useTrip();
   const t = UI_TEXT[lang];
 
+  const displayTitle =
+    state.meta.isLondonDefault &&
+    lang === 'en' &&
+    state.meta.title === DEFAULT_LONDON_META.title
+      ? t.appTitle
+      : state.meta.title;
+
+  const displaySubtitle =
+    state.meta.isLondonDefault &&
+    lang === 'en' &&
+    state.meta.subtitle === DEFAULT_LONDON_META.subtitle
+      ? t.appSubtitle
+      : state.meta.subtitle;
+
   return (
     <header className="sticky top-0 z-30 border-b border-[#ECE7DE]/90 bg-[#FAF8F4]/95 backdrop-blur-md">
-      <div className="mx-auto flex max-w-md items-center justify-between gap-2 px-5 py-3">
-        <div className="flex min-w-0 items-center gap-3">
+      <div className="mx-auto flex max-w-md items-center justify-between gap-1.5 px-4 py-3">
+        <button
+          type="button"
+          id="header-trip-switcher-btn"
+          onClick={() => setTripsModalOpen(true)}
+          aria-label={t.trips.title}
+          className="group flex min-w-0 items-center gap-2.5 rounded-xl text-left transition focus:outline-none"
+        >
           <div
             aria-hidden="true"
-            className="flex h-8 w-8 shrink-0 flex-col items-center justify-center rounded-lg border border-[#B39258]/60 bg-[#143B2B] text-[#FAF8F4]"
+            className="flex h-8 w-8 shrink-0 flex-col items-center justify-center rounded-lg border border-[#B39258]/60 bg-[#143B2B] text-[#FAF8F4] transition group-hover:border-[#B39258]"
           >
             <span className="font-editorial text-[9.5px] font-medium tracking-[0.14em] leading-none">
-              LDN
+              {state.meta.monogramTop}
             </span>
             <span className="my-0.5 h-[0.75px] w-4 bg-[#B39258]" />
             <span className="font-editorial text-[8.5px] font-normal tracking-[0.1em] text-[#D7BD8A] leading-none">
-              26
+              {state.meta.monogramBottom}
             </span>
           </div>
           <div className="min-w-0">
-            <h1 className="font-editorial truncate text-[21px] font-medium leading-none tracking-tight text-[#143B2B]">
-              {t.appTitle}
-            </h1>
+            <div className="flex items-center gap-1">
+              <h1 className="font-editorial truncate text-[20px] font-medium leading-none tracking-tight text-[#143B2B]">
+                {displayTitle}
+              </h1>
+              <ChevronDown className="h-3.5 w-3.5 shrink-0 stroke-[1.6] text-[#B39258] transition group-hover:translate-y-0.5" />
+            </div>
             <p className="mt-1 truncate text-[11px] font-light tracking-wide text-[#5F7067]">
-              {t.appSubtitle}
+              {displaySubtitle}
             </p>
           </div>
-        </div>
+        </button>
 
-        <div className="flex shrink-0 items-center gap-1">
+        <div className="flex shrink-0 items-center gap-0.5">
           {/* Global FR / EN toggle */}
           <div
             role="group"
@@ -80,7 +114,7 @@ export function Header() {
             }}
             title={authUser ? authUser.email : t.auth.signInBtn}
             aria-label={t.auth.sectionTitle}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[#5F7067] transition hover:bg-white hover:text-[#143B2B]"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#5F7067] transition hover:bg-white hover:text-[#143B2B]"
           >
             {!canEdit ? (
               <Eye className="h-4 w-4 stroke-[1.5] text-[#8F7038]" />
@@ -102,7 +136,7 @@ export function Header() {
                   ? 'Sync...'
                   : t.infos.syncLocal
             }
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[#5F7067] transition hover:bg-white hover:text-[#143B2B]"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#5F7067] transition hover:bg-white hover:text-[#143B2B]"
             aria-label="Sync status"
           >
             {syncStatus.mode === 'syncing' ? (

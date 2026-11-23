@@ -8,12 +8,16 @@ import {
   Cloud,
   Coins,
   Copy,
+  CreditCard,
   Download,
   ExternalLink,
   Eye,
+  FileText,
   Home,
   LogIn,
   LogOut,
+  MapPin,
+  Pencil,
   Plane,
   Plus,
   RefreshCw,
@@ -53,9 +57,12 @@ type SectionKey =
   | 'flights'
   | 'home'
   | 'th'
+  | 'notes'
   | 'checklist'
+  | 'details'
   | 'currencies'
   | 'people'
+  | 'payments'
   | 'share'
   | 'account'
   | 'sync'
@@ -86,9 +93,15 @@ export function InfosTab() {
     toggleChecklistItem,
     addChecklistItem,
     deleteChecklistItem,
+    updateTripMeta,
     updateCurrencies,
     addPerson,
     removePerson,
+    addPaymentMethod,
+    removePaymentMethod,
+    addPracticalNote,
+    updatePracticalNote,
+    deletePracticalNote,
     setFamilyCode,
     triggerManualSync,
     exportTripJson,
@@ -98,6 +111,7 @@ export function InfosTab() {
 
   const t = UI_TEXT[lang];
   const locale = lang === 'fr' ? 'fr-FR' : 'en-GB';
+  const isLondon = Boolean(state.meta.isLondonDefault);
 
   const { tripCurrency, homeCurrency } = state.currencies;
   const sameCurrency = tripCurrency === homeCurrency;
@@ -108,9 +122,12 @@ export function InfosTab() {
     flights: false,
     home: false,
     th: false,
+    notes: false,
     checklist: false,
+    details: false,
     currencies: false,
     people: false,
+    payments: false,
     share: false,
     account: false,
     sync: false,
@@ -123,6 +140,15 @@ export function InfosTab() {
   const [copiedAuthSql, setCopiedAuthSql] = useState(false);
   const [newCheckLabel, setNewCheckLabel] = useState('');
   const [newPersonName, setNewPersonName] = useState('');
+  const [newPaymentName, setNewPaymentName] = useState('');
+  const [showAddNoteForm, setShowAddNoteForm] = useState(false);
+  const [newNoteTitle, setNewNoteTitle] = useState('');
+  const [newNoteContent, setNewNoteContent] = useState('');
+  const [newNoteMaps, setNewNoteMaps] = useState('');
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editNoteTitle, setEditNoteTitle] = useState('');
+  const [editNoteContent, setEditNoteContent] = useState('');
+  const [editNoteMaps, setEditNoteMaps] = useState('');
   const [rateInput, setRateInput] = useState(String(activeRate));
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<MemberRole>('viewer');
@@ -205,13 +231,24 @@ export function InfosTab() {
           locale
         )})`;
 
+    if (isLondon) {
+      return [
+        'Londres en Famille — Noël 2026 (22 déc. → 1er jan.)',
+        `Aller RAM AT800 : 22 déc. CMN T1 13h05 → LHR T4 15h25`,
+        `Retour RAM AT801 : 1er jan. LHR T4 17h15 → CMN T2 21h30 (cabine uniquement)`,
+        `Appartement : ${ACCOMMODATION_INFO.fullAddress}`,
+        `Tower Hamlets £1 : 27 déc. (Tour de Londres + Tower Bridge)`,
+        `1er jan. : Piccadilly Line depuis Hyde Park Corner vers 13h45 (zéro taxi)`,
+        budgetLine,
+      ].join('\n');
+    }
+
+    const noteLines = state.practicalNotes
+      .slice(0, 4)
+      .map((n) => `${n.title} : ${n.content}`);
     return [
-      'Londres en Famille — Noël 2026 (22 déc. → 1er jan.)',
-      `Aller RAM AT800 : 22 déc. CMN T1 13h05 → LHR T4 15h25`,
-      `Retour RAM AT801 : 1er jan. LHR T4 17h15 → CMN T2 21h30 (cabine uniquement)`,
-      `Appartement : ${ACCOMMODATION_INFO.fullAddress}`,
-      `Tower Hamlets £1 : 27 déc. (Tour de Londres + Tower Bridge)`,
-      `1er jan. : Piccadilly Line depuis Hyde Park Corner vers 13h45 (zéro taxi)`,
+      `${state.meta.title} (${state.meta.subtitle})`,
+      ...noteLines,
       budgetLine,
     ].join('\n');
   };
@@ -222,7 +259,8 @@ export function InfosTab() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `londres-noel-2026-${new Date().toISOString().slice(0, 10)}.json`;
+    const slug = (syncStatus.familyCode || 'trip').toLowerCase();
+    link.download = `${slug}-${new Date().toISOString().slice(0, 10)}.json`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -258,6 +296,38 @@ export function InfosTab() {
     if (!canEdit || !newPersonName.trim()) return;
     addPerson(newPersonName);
     setNewPersonName('');
+  };
+
+  const handlePaymentSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    if (!canEdit || !newPaymentName.trim()) return;
+    addPaymentMethod(newPaymentName);
+    setNewPaymentName('');
+  };
+
+  const handleAddNoteSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    if (!canEdit || (!newNoteTitle.trim() && !newNoteContent.trim())) return;
+    addPracticalNote({
+      title: newNoteTitle.trim(),
+      content: newNoteContent.trim(),
+      mapsQuery: newNoteMaps.trim() || undefined,
+    });
+    setNewNoteTitle('');
+    setNewNoteContent('');
+    setNewNoteMaps('');
+    setShowAddNoteForm(false);
+  };
+
+  const handleSaveEditNote = (e: FormEvent, noteId: string) => {
+    e.preventDefault();
+    if (!canEdit) return;
+    updatePracticalNote(noteId, {
+      title: editNoteTitle.trim() || 'Note',
+      content: editNoteContent.trim(),
+      mapsQuery: editNoteMaps.trim() || undefined,
+    });
+    setEditingNoteId(null);
   };
 
   const handleClaimTrip = async () => {
@@ -314,195 +384,471 @@ export function InfosTab() {
       <div className="space-y-3.5">
         <div className="pt-2">
           <span className="text-[11px] font-normal uppercase tracking-[0.16em] text-[#B39258]">
-            {t.infos.prepEyebrow}
+            {isLondon
+              ? t.infos.prepEyebrow
+              : `${t.infos.practicalPrefix} · ${state.meta.destination}`}
           </span>
           <h2 className="font-editorial mt-1 text-[30px] font-normal leading-tight text-[#143B2B]">
             {t.infos.prepTitle}
           </h2>
         </div>
 
-        {/* 1. Vols Royal Air Maroc */}
-        <article className="ivy-card overflow-hidden rounded-2xl">
-          <button
-            type="button"
-            id="infos-toggle-flights"
-            onClick={() => toggleSection('flights')}
-            className="flex w-full items-center justify-between gap-2 px-4 py-3.5 text-left"
-          >
-            <div className="flex items-center gap-2.5">
-              <Plane className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
-              <h3 className="font-editorial text-[21px] font-normal text-[#143B2B]">
-                {t.infos.flightsTitle}
-              </h3>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-light text-[#7C2D36]">
-                {t.infos.cabinTag}
-              </span>
-              {openSections.flights ? (
-                <ChevronUp className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
-              ) : (
-                <ChevronDown className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
-              )}
-            </div>
-          </button>
+        {isLondon && (
+          <>
+            {/* 1. Vols Royal Air Maroc */}
+            <article className="ivy-card overflow-hidden rounded-2xl">
+              <button
+                type="button"
+                id="infos-toggle-flights"
+                onClick={() => toggleSection('flights')}
+                className="flex w-full items-center justify-between gap-2 px-4 py-3.5 text-left"
+              >
+                <div className="flex items-center gap-2.5">
+                  <Plane className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+                  <h3 className="font-editorial text-[21px] font-normal text-[#143B2B]">
+                    {t.infos.flightsTitle}
+                  </h3>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-light text-[#7C2D36]">
+                    {t.infos.cabinTag}
+                  </span>
+                  {openSections.flights ? (
+                    <ChevronUp className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+                  )}
+                </div>
+              </button>
 
-          {openSections.flights && (
-            <div className="space-y-3.5 border-t border-[#F2EDE4] px-4 py-3.5 text-[13px] font-light">
-              {[
-                { label: t.infos.outbound, f: FLIGHT_INFO.outbound },
-                { label: t.infos.inbound, f: FLIGHT_INFO.inbound },
-              ].map(({ label, f }, idx) => (
-                <div
-                  key={f.code}
-                  className={`space-y-1 ${idx > 0 ? 'border-t border-[#F2EDE4] pt-3' : ''}`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-[11px] font-normal uppercase tracking-wider text-[#8F7038]">
-                      {label} · {f.code} · {f.date}
-                    </p>
+              {openSections.flights && (
+                <div className="space-y-3.5 border-t border-[#F2EDE4] px-4 py-3.5 text-[13px] font-light">
+                  {[
+                    { label: t.infos.outbound, f: FLIGHT_INFO.outbound },
+                    { label: t.infos.inbound, f: FLIGHT_INFO.inbound },
+                  ].map(({ label, f }, idx) => (
+                    <div
+                      key={f.code}
+                      className={`space-y-1 ${idx > 0 ? 'border-t border-[#F2EDE4] pt-3' : ''}`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-[11px] font-normal uppercase tracking-wider text-[#8F7038]">
+                          {label} · {f.code} · {f.date}
+                        </p>
+                        <a
+                          href={f.statusUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex shrink-0 items-center gap-1 text-[11px] font-normal text-[#143B2B] underline decoration-[#B39258]/70 underline-offset-2"
+                        >
+                          <span>{t.infos.track}</span>
+                          <ExternalLink className="h-3 w-3 stroke-[1.5] text-[#B39258]" />
+                        </a>
+                      </div>
+                      <p className="text-[#143B2B]">
+                        {f.from}{' '}
+                        <span className="font-medium tabular-nums">{f.departure}</span> →{' '}
+                        {f.to}{' '}
+                        <span className="font-medium tabular-nums">{f.arrival}</span>
+                      </p>
+                      <p className="text-[12px] text-[#5F7067]">
+                        {t.infos.terminals} :{' '}
+                        <span className="font-normal text-[#143B2B]">
+                          {f.fromTerminal}
+                        </span>{' '}
+                        →{' '}
+                        <span className="font-normal text-[#143B2B]">
+                          {f.toTerminal}
+                        </span>
+                      </p>
+                      <p className="text-[11.5px] text-[#5F7067]">{f.gateNote}</p>
+                    </div>
+                  ))}
+                  <p className="border-t border-[#F2EDE4] pt-2.5 text-[12px] text-[#5F7067]">
+                    {FLIGHT_INFO.baggageNote}.
+                  </p>
+                </div>
+              )}
+            </article>
+
+            {/* 2. Appartement W1J 7SU */}
+            <article className="ivy-card overflow-hidden rounded-2xl">
+              <button
+                type="button"
+                id="infos-toggle-home"
+                onClick={() => toggleSection('home')}
+                className="flex w-full items-center justify-between gap-2 px-4 py-3.5 text-left"
+              >
+                <div className="flex items-center gap-2.5">
+                  <Home className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+                  <h3 className="font-editorial text-[21px] font-normal text-[#143B2B]">
+                    {t.infos.homeTitle}
+                  </h3>
+                </div>
+                {openSections.home ? (
+                  <ChevronUp className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+                )}
+              </button>
+
+              {openSections.home && (
+                <div className="space-y-3 border-t border-[#F2EDE4] px-4 py-3.5 text-[13px] font-light">
+                  <p className="font-normal text-[#143B2B]">
+                    {ACCOMMODATION_INFO.street}, {ACCOMMODATION_INFO.postcode}
+                  </p>
+                  <p className="text-[12.5px] leading-relaxed text-[#5F7067]">
+                    {t.infos.homeTube}
+                  </p>
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        void copyText(ACCOMMODATION_INFO.fullAddress, () => {
+                          setCopiedAddress(true);
+                          window.setTimeout(() => setCopiedAddress(false), 1800);
+                        })
+                      }
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-[#ECE7DE] bg-[#FAF8F4] px-3 py-2 text-[12px] font-normal text-[#143B2B]"
+                    >
+                      {copiedAddress ? (
+                        <Check className="h-3.5 w-3.5" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5 stroke-[1.5] text-[#B39258]" />
+                      )}
+                      <span>{copiedAddress ? t.infos.copied : t.infos.copy}</span>
+                    </button>
+
                     <a
-                      href={f.statusUrl}
+                      href={ACCOMMODATION_INFO.mapsUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex shrink-0 items-center gap-1 text-[11px] font-normal text-[#143B2B] underline decoration-[#B39258]/70 underline-offset-2"
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-[#143B2B] px-3.5 py-2 text-[12px] font-normal text-[#FAF8F4]"
                     >
-                      <span>{t.infos.track}</span>
-                      <ExternalLink className="h-3 w-3 stroke-[1.5] text-[#B39258]" />
+                      <span>Maps</span>
+                      <ExternalLink className="h-3.5 w-3.5 stroke-[1.5] text-[#D7BD8A]" />
                     </a>
                   </div>
-                  <p className="text-[#143B2B]">
-                    {f.from}{' '}
-                    <span className="font-medium tabular-nums">{f.departure}</span> →{' '}
-                    {f.to}{' '}
-                    <span className="font-medium tabular-nums">{f.arrival}</span>
-                  </p>
-                  <p className="text-[12px] text-[#5F7067]">
-                    {t.infos.terminals} :{' '}
-                    <span className="font-normal text-[#143B2B]">
-                      {f.fromTerminal}
-                    </span>{' '}
-                    →{' '}
-                    <span className="font-normal text-[#143B2B]">
-                      {f.toTerminal}
-                    </span>
-                  </p>
-                  <p className="text-[11.5px] text-[#5F7067]">{f.gateNote}</p>
                 </div>
-              ))}
-              <p className="border-t border-[#F2EDE4] pt-2.5 text-[12px] text-[#5F7067]">
-                {FLIGHT_INFO.baggageNote}.
-              </p>
-            </div>
-          )}
-        </article>
+              )}
+            </article>
 
-        {/* 2. Appartement W1J 7SU */}
-        <article className="ivy-card overflow-hidden rounded-2xl">
-          <button
-            type="button"
-            id="infos-toggle-home"
-            onClick={() => toggleSection('home')}
-            className="flex w-full items-center justify-between gap-2 px-4 py-3.5 text-left"
-          >
-            <div className="flex items-center gap-2.5">
-              <Home className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
-              <h3 className="font-editorial text-[21px] font-normal text-[#143B2B]">
-                {t.infos.homeTitle}
-              </h3>
-            </div>
-            {openSections.home ? (
-              <ChevronUp className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
-            ) : (
-              <ChevronDown className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+            {/* 3. Mémo Tower Hamlets */}
+            <article className="ivy-card overflow-hidden rounded-2xl">
+              <button
+                type="button"
+                id="infos-toggle-th"
+                onClick={() => toggleSection('th')}
+                className="flex w-full items-center justify-between gap-2 px-4 py-3.5 text-left"
+              >
+                <div className="flex items-center gap-2.5">
+                  <Award className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+                  <h3 className="font-editorial text-[21px] font-normal text-[#143B2B]">
+                    {t.infos.thTitle}
+                  </h3>
+                </div>
+                {openSections.th ? (
+                  <ChevronUp className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+                )}
+              </button>
+
+              {openSections.th && (
+                <div className="space-y-2.5 border-t border-[#F2EDE4] px-4 py-3.5 text-[12.5px] font-light leading-relaxed text-[#5F7067]">
+                  <p className="font-normal text-[#83662F]">
+                    {TOWER_HAMLETS_MEMO.savingsSummary}
+                  </p>
+                  <ul className="space-y-1 text-[#143B2B]">
+                    {TOWER_HAMLETS_MEMO.sites.map((s) => (
+                      <li key={s}>• {s}</li>
+                    ))}
+                  </ul>
+                  <p className="pt-1 text-[11px] font-normal uppercase tracking-wider text-[#143B2B]">
+                    {t.infos.thDocsTitle}
+                  </p>
+                  <ul className="space-y-1">
+                    {TOWER_HAMLETS_MEMO.requiredDocs.map((doc) => (
+                      <li key={doc}>— {doc}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </article>
+          </>
+        )}
+
+        {/* Notes pratiques (always editable: shown inline for custom trips, collapsible for London) */}
+        {isLondon ? (
+          <article className="ivy-card overflow-hidden rounded-2xl">
+            <button
+              type="button"
+              id="infos-toggle-notes"
+              onClick={() => toggleSection('notes')}
+              className="flex w-full items-center justify-between gap-2 px-4 py-3.5 text-left"
+            >
+              <div className="flex items-center gap-2.5">
+                <FileText className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+                <h3 className="font-editorial text-[21px] font-normal text-[#143B2B]">
+                  {t.infos.practicalNotesTitle}
+                </h3>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[11.5px] font-light tabular-nums text-[#5F7067]">
+                  {state.practicalNotes.length}
+                </span>
+                {openSections.notes ? (
+                  <ChevronUp className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+                )}
+              </div>
+            </button>
+
+            {openSections.notes && (
+              <div className="space-y-3 border-t border-[#F2EDE4] px-4 py-3.5 text-[12.5px] font-light text-[#5F7067]">
+                {state.practicalNotes.length === 0 ? (
+                  <p className="leading-relaxed">{t.infos.practicalNotesEmpty}</p>
+                ) : (
+                  <div className="space-y-2.5">
+                    {state.practicalNotes.map((note) => (
+                      <div
+                        key={note.id}
+                        className="rounded-xl border border-[#ECE7DE] bg-[#FAF8F4] px-3 py-2.5"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="font-normal text-[#143B2B]">{note.title}</p>
+                          {canEdit && (
+                            <button
+                              type="button"
+                              onClick={() => deletePracticalNote(note.id)}
+                              aria-label={t.delete}
+                              className="p-0.5 text-[#5F7067]/60 hover:text-[#7C2D36]"
+                            >
+                              <Trash2 className="h-3.5 w-3.5 stroke-[1.5]" />
+                            </button>
+                          )}
+                        </div>
+                        {note.content && (
+                          <p className="mt-1 whitespace-pre-line leading-relaxed text-[#5F7067]">
+                            {note.content}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {canEdit && (
+                  <form onSubmit={handleAddNoteSubmit} className="space-y-2 pt-1">
+                    <input
+                      type="text"
+                      value={newNoteTitle}
+                      onChange={(e) => setNewNoteTitle(e.target.value)}
+                      placeholder={t.infos.noteTitlePlaceholder}
+                      className="w-full rounded-xl border border-[#ECE7DE] bg-[#FAF8F4] px-3 py-2 text-[12.5px] font-normal text-[#143B2B] focus:border-[#143B2B] focus:outline-none"
+                    />
+                    <textarea
+                      rows={2}
+                      value={newNoteContent}
+                      onChange={(e) => setNewNoteContent(e.target.value)}
+                      placeholder={t.infos.noteContentPlaceholder}
+                      className="w-full rounded-xl border border-[#ECE7DE] bg-[#FAF8F4] px-3 py-2 text-[12.5px] font-light text-[#143B2B] focus:border-[#143B2B] focus:outline-none"
+                    />
+                    <button
+                      type="submit"
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-[#143B2B] px-3.5 py-2 text-[12px] font-normal text-[#FAF8F4]"
+                    >
+                      <Plus className="h-3.5 w-3.5 stroke-[1.6] text-[#D7BD8A]" />
+                      <span>{t.infos.addPracticalNoteBtn}</span>
+                    </button>
+                  </form>
+                )}
+              </div>
             )}
-          </button>
+          </article>
+        ) : (
+          <div id="custom-practical-notes" className="space-y-3">
+            {state.practicalNotes.length === 0 ? (
+              <div className="ivy-card rounded-2xl px-4 py-4 text-[12.5px] font-light text-[#5F7067]">
+                {t.infos.practicalNotesEmpty}
+              </div>
+            ) : (
+              state.practicalNotes.map((note) => {
+                const isEditing = editingNoteId === note.id;
+                return (
+                  <article
+                    key={note.id}
+                    id={`practical-note-${note.id}`}
+                    className="ivy-card rounded-2xl px-4 py-3.5"
+                  >
+                    {isEditing ? (
+                      <form
+                        onSubmit={(e) => handleSaveEditNote(e, note.id)}
+                        className="space-y-2.5 text-[12.5px]"
+                      >
+                        <input
+                          type="text"
+                          value={editNoteTitle}
+                          onChange={(e) => setEditNoteTitle(e.target.value)}
+                          placeholder={t.infos.noteTitlePlaceholder}
+                          className="w-full rounded-xl border border-[#ECE7DE] bg-[#FAF8F4] px-3 py-2 font-normal text-[#143B2B] focus:border-[#143B2B] focus:outline-none"
+                        />
+                        <textarea
+                          rows={3}
+                          value={editNoteContent}
+                          onChange={(e) => setEditNoteContent(e.target.value)}
+                          placeholder={t.infos.noteContentPlaceholder}
+                          className="w-full rounded-xl border border-[#ECE7DE] bg-[#FAF8F4] px-3 py-2 font-light text-[#143B2B] focus:border-[#143B2B] focus:outline-none"
+                        />
+                        <input
+                          type="text"
+                          value={editNoteMaps}
+                          onChange={(e) => setEditNoteMaps(e.target.value)}
+                          placeholder={t.infos.noteMapsPlaceholder}
+                          className="w-full rounded-xl border border-[#ECE7DE] bg-[#FAF8F4] px-3 py-2 font-light text-[#143B2B] focus:border-[#143B2B] focus:outline-none"
+                        />
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setEditingNoteId(null)}
+                            className="rounded-xl border border-[#ECE7DE] bg-white px-3 py-1.5 text-[12px] font-light text-[#5F7067]"
+                          >
+                            {t.cancel}
+                          </button>
+                          <button
+                            type="submit"
+                            className="rounded-xl bg-[#143B2B] px-3.5 py-1.5 text-[12px] font-normal text-[#FAF8F4]"
+                          >
+                            {t.save}
+                          </button>
+                        </div>
+                      </form>
+                    ) : (
+                      <>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <FileText className="h-4 w-4 shrink-0 stroke-[1.5] text-[#B39258]" />
+                            <h3 className="font-editorial text-[21px] font-normal text-[#143B2B]">
+                              {note.title}
+                            </h3>
+                          </div>
+                          {canEdit && (
+                            <div className="flex shrink-0 items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingNoteId(note.id);
+                                  setEditNoteTitle(note.title);
+                                  setEditNoteContent(note.content);
+                                  setEditNoteMaps(note.mapsQuery ?? '');
+                                }}
+                                aria-label={t.edit}
+                                className="p-1 text-[#5F7067]/70 hover:text-[#143B2B]"
+                              >
+                                <Pencil className="h-3.5 w-3.5 stroke-[1.5]" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => deletePracticalNote(note.id)}
+                                aria-label={t.delete}
+                                className="p-1 text-[#5F7067]/60 hover:text-[#7C2D36]"
+                              >
+                                <Trash2 className="h-3.5 w-3.5 stroke-[1.5]" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                        {note.content && (
+                          <p className="mt-2 whitespace-pre-line text-[13px] font-light leading-relaxed text-[#5F7067]">
+                            {note.content}
+                          </p>
+                        )}
+                        {note.mapsQuery && (
+                          <div className="mt-3">
+                            <a
+                              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                                note.mapsQuery
+                              )}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1.5 rounded-xl border border-[#ECE7DE] bg-[#FAF8F4] px-3 py-1.5 text-[11.5px] font-normal text-[#143B2B] hover:border-[#B39258]"
+                            >
+                              <MapPin className="h-3.5 w-3.5 stroke-[1.5] text-[#B39258]" />
+                              <span>{t.openMaps}</span>
+                              <ExternalLink className="h-3 w-3 stroke-[1.5] text-[#B39258]" />
+                            </a>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </article>
+                );
+              })
+            )}
 
-          {openSections.home && (
-            <div className="space-y-3 border-t border-[#F2EDE4] px-4 py-3.5 text-[13px] font-light">
-              <p className="font-normal text-[#143B2B]">
-                {ACCOMMODATION_INFO.street}, {ACCOMMODATION_INFO.postcode}
-              </p>
-              <p className="text-[12.5px] leading-relaxed text-[#5F7067]">
-                {t.infos.homeTube}
-              </p>
-              <div className="flex gap-2 pt-1">
+            {canEdit &&
+              (showAddNoteForm ? (
+                <form
+                  onSubmit={handleAddNoteSubmit}
+                  className="ivy-card space-y-2.5 rounded-2xl p-4 text-[12.5px]"
+                >
+                  <input
+                    id="new-practical-note-title"
+                    type="text"
+                    required
+                    value={newNoteTitle}
+                    onChange={(e) => setNewNoteTitle(e.target.value)}
+                    placeholder={t.infos.noteTitlePlaceholder}
+                    className="w-full rounded-xl border border-[#ECE7DE] bg-[#FAF8F4] px-3 py-2 font-normal text-[#143B2B] focus:border-[#143B2B] focus:outline-none"
+                  />
+                  <textarea
+                    id="new-practical-note-content"
+                    rows={3}
+                    value={newNoteContent}
+                    onChange={(e) => setNewNoteContent(e.target.value)}
+                    placeholder={t.infos.noteContentPlaceholder}
+                    className="w-full rounded-xl border border-[#ECE7DE] bg-[#FAF8F4] px-3 py-2 font-light text-[#143B2B] focus:border-[#143B2B] focus:outline-none"
+                  />
+                  <input
+                    type="text"
+                    value={newNoteMaps}
+                    onChange={(e) => setNewNoteMaps(e.target.value)}
+                    placeholder={t.infos.noteMapsPlaceholder}
+                    className="w-full rounded-xl border border-[#ECE7DE] bg-[#FAF8F4] px-3 py-2 font-light text-[#143B2B] focus:border-[#143B2B] focus:outline-none"
+                  />
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowAddNoteForm(false)}
+                      className="rounded-xl border border-[#ECE7DE] bg-white px-3 py-1.5 text-[12px] font-light text-[#5F7067]"
+                    >
+                      {t.cancel}
+                    </button>
+                    <button
+                      id="save-practical-note-btn"
+                      type="submit"
+                      className="rounded-xl bg-[#143B2B] px-3.5 py-1.5 text-[12px] font-normal text-[#FAF8F4]"
+                    >
+                      {t.add}
+                    </button>
+                  </div>
+                </form>
+              ) : (
                 <button
                   type="button"
-                  onClick={() =>
-                    void copyText(ACCOMMODATION_INFO.fullAddress, () => {
-                      setCopiedAddress(true);
-                      window.setTimeout(() => setCopiedAddress(false), 1800);
-                    })
-                  }
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-[#ECE7DE] bg-[#FAF8F4] px-3 py-2 text-[12px] font-normal text-[#143B2B]"
+                  id="add-practical-note-btn"
+                  onClick={() => setShowAddNoteForm(true)}
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-[#D8CEBC] bg-white/60 py-3 text-[12.5px] font-normal text-[#143B2B] transition hover:border-[#B39258] hover:bg-white"
                 >
-                  {copiedAddress ? (
-                    <Check className="h-3.5 w-3.5" />
-                  ) : (
-                    <Copy className="h-3.5 w-3.5 stroke-[1.5] text-[#B39258]" />
-                  )}
-                  <span>{copiedAddress ? t.infos.copied : t.infos.copy}</span>
+                  <Plus className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+                  <span>{t.infos.addPracticalNoteBtn}</span>
                 </button>
+              ))}
+          </div>
+        )}
 
-                <a
-                  href={ACCOMMODATION_INFO.mapsUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-[#143B2B] px-3.5 py-2 text-[12px] font-normal text-[#FAF8F4]"
-                >
-                  <span>Maps</span>
-                  <ExternalLink className="h-3.5 w-3.5 stroke-[1.5] text-[#D7BD8A]" />
-                </a>
-              </div>
-            </div>
-          )}
-        </article>
-
-        {/* 3. Mémo Tower Hamlets */}
-        <article className="ivy-card overflow-hidden rounded-2xl">
-          <button
-            type="button"
-            id="infos-toggle-th"
-            onClick={() => toggleSection('th')}
-            className="flex w-full items-center justify-between gap-2 px-4 py-3.5 text-left"
-          >
-            <div className="flex items-center gap-2.5">
-              <Award className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
-              <h3 className="font-editorial text-[21px] font-normal text-[#143B2B]">
-                {t.infos.thTitle}
-              </h3>
-            </div>
-            {openSections.th ? (
-              <ChevronUp className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
-            ) : (
-              <ChevronDown className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
-            )}
-          </button>
-
-          {openSections.th && (
-            <div className="space-y-2.5 border-t border-[#F2EDE4] px-4 py-3.5 text-[12.5px] font-light leading-relaxed text-[#5F7067]">
-              <p className="font-normal text-[#83662F]">
-                {TOWER_HAMLETS_MEMO.savingsSummary}
-              </p>
-              <ul className="space-y-1 text-[#143B2B]">
-                {TOWER_HAMLETS_MEMO.sites.map((s) => (
-                  <li key={s}>• {s}</li>
-                ))}
-              </ul>
-              <p className="pt-1 text-[11px] font-normal uppercase tracking-wider text-[#143B2B]">
-                {t.infos.thDocsTitle}
-              </p>
-              <ul className="space-y-1">
-                {TOWER_HAMLETS_MEMO.requiredDocs.map((doc) => (
-                  <li key={doc}>— {doc}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </article>
-
-        {/* 4. Check-list pré-départ */}
+        {/* Check-list pré-départ */}
         <article className="ivy-card overflow-hidden rounded-2xl">
           <button
             type="button"
@@ -601,6 +947,89 @@ export function InfosTab() {
             {t.infos.tripSettingsTitle}
           </h2>
         </div>
+
+        {/* 0. Identité du voyage */}
+        <article className="ivy-card overflow-hidden rounded-2xl">
+          <button
+            type="button"
+            id="infos-toggle-details"
+            onClick={() => toggleSection('details')}
+            className="flex w-full items-center justify-between gap-2 px-4 py-3.5 text-left"
+          >
+            <div className="flex items-center gap-2.5">
+              <Pencil className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+              <h3 className="font-editorial text-[21px] font-normal text-[#143B2B]">
+                {t.infos.tripDetailsTitle}
+              </h3>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="max-w-[110px] truncate text-[11px] font-light text-[#5F7067]">
+                {state.meta.destination}
+              </span>
+              {openSections.details ? (
+                <ChevronUp className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+              ) : (
+                <ChevronDown className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+              )}
+            </div>
+          </button>
+
+          {openSections.details && (
+            <div className="space-y-3 border-t border-[#F2EDE4] px-4 py-3.5 text-[12.5px] font-light text-[#5F7067]">
+              <p className="leading-relaxed">{t.infos.tripDetailsDesc}</p>
+              <div>
+                <label
+                  htmlFor="trip-meta-title-input"
+                  className="mb-1 block text-[11px] font-normal uppercase tracking-wider text-[#5F7067]"
+                >
+                  {t.infos.tripTitleLabel}
+                </label>
+                <input
+                  id="trip-meta-title-input"
+                  type="text"
+                  disabled={!canEdit}
+                  value={state.meta.title}
+                  onChange={(e) => updateTripMeta({ title: e.target.value })}
+                  className="w-full rounded-xl border border-[#ECE7DE] bg-[#FAF8F4] px-3 py-2 text-[12.5px] font-normal text-[#143B2B] focus:border-[#143B2B] focus:outline-none disabled:opacity-60"
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="trip-meta-dest-input"
+                  className="mb-1 block text-[11px] font-normal uppercase tracking-wider text-[#5F7067]"
+                >
+                  {t.infos.tripDestLabel}
+                </label>
+                <input
+                  id="trip-meta-dest-input"
+                  type="text"
+                  disabled={!canEdit}
+                  value={state.meta.destination}
+                  onChange={(e) =>
+                    updateTripMeta({ destination: e.target.value })
+                  }
+                  className="w-full rounded-xl border border-[#ECE7DE] bg-[#FAF8F4] px-3 py-2 text-[12.5px] font-normal text-[#143B2B] focus:border-[#143B2B] focus:outline-none disabled:opacity-60"
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="trip-meta-subtitle-input"
+                  className="mb-1 block text-[11px] font-normal uppercase tracking-wider text-[#5F7067]"
+                >
+                  {t.infos.tripSubtitleLabel}
+                </label>
+                <input
+                  id="trip-meta-subtitle-input"
+                  type="text"
+                  disabled={!canEdit}
+                  value={state.meta.subtitle}
+                  onChange={(e) => updateTripMeta({ subtitle: e.target.value })}
+                  className="w-full rounded-xl border border-[#ECE7DE] bg-[#FAF8F4] px-3 py-2 text-[12.5px] font-normal text-[#143B2B] focus:border-[#143B2B] focus:outline-none disabled:opacity-60"
+                />
+              </div>
+            </div>
+          )}
+        </article>
 
         {/* 1. Devises du voyage */}
         <article className="ivy-card overflow-hidden rounded-2xl">
@@ -800,7 +1229,86 @@ export function InfosTab() {
           )}
         </article>
 
-        {/* 3. Partage & Sauvegarde */}
+        {/* 3. Moyens de paiement */}
+        <article className="ivy-card overflow-hidden rounded-2xl">
+          <button
+            type="button"
+            id="infos-toggle-payments"
+            onClick={() => toggleSection('payments')}
+            className="flex w-full items-center justify-between gap-2 px-4 py-3.5 text-left"
+          >
+            <div className="flex items-center gap-2.5">
+              <CreditCard className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+              <h3 className="font-editorial text-[21px] font-normal text-[#143B2B]">
+                {t.infos.paymentsTitle}
+              </h3>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[11.5px] font-light tabular-nums text-[#5F7067]">
+                {state.paymentMethods.length}
+              </span>
+              {openSections.payments ? (
+                <ChevronUp className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+              ) : (
+                <ChevronDown className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+              )}
+            </div>
+          </button>
+
+          {openSections.payments && (
+            <div className="space-y-3 border-t border-[#F2EDE4] px-4 py-3.5">
+              <p className="text-[12.5px] font-light leading-relaxed text-[#5F7067]">
+                {t.infos.paymentsDesc}
+              </p>
+
+              <div className="flex flex-wrap gap-2">
+                {state.paymentMethods.map((method) => (
+                  <span
+                    key={method}
+                    className={`inline-flex items-center gap-1.5 rounded-full border border-[#ECE7DE] bg-[#FAF8F4] py-1 pl-3 text-[12.5px] font-normal text-[#143B2B] ${
+                      canEdit ? 'pr-2' : 'pr-3'
+                    }`}
+                  >
+                    <span>{method}</span>
+                    {canEdit && (
+                      <button
+                        type="button"
+                        onClick={() => removePaymentMethod(method)}
+                        aria-label={`Remove ${method}`}
+                        className="rounded-full p-0.5 text-[#5F7067]/70 hover:text-[#7C2D36]"
+                      >
+                        <Trash2 className="h-3 w-3 stroke-[1.5]" />
+                      </button>
+                    )}
+                  </span>
+                ))}
+              </div>
+
+              {canEdit && (
+                <form onSubmit={handlePaymentSubmit} className="flex gap-2 pt-1">
+                  <input
+                    id="new-payment-input"
+                    type="text"
+                    value={newPaymentName}
+                    onChange={(e) => setNewPaymentName(e.target.value)}
+                    placeholder={t.infos.paymentsPlaceholder}
+                    className="min-w-0 flex-1 rounded-xl border border-[#ECE7DE] bg-[#FAF8F4] px-3 py-2 text-[12.5px] font-light text-[#143B2B] focus:border-[#143B2B] focus:outline-none"
+                  />
+                  <button
+                    id="add-payment-submit"
+                    type="submit"
+                    aria-label={t.add}
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#143B2B] text-[#FAF8F4]"
+                  >
+                    <Plus className="h-4 w-4 stroke-[1.6]" />
+                  </button>
+                </form>
+              )}
+            </div>
+          )}
+        </article>
+
+        {/* 4. Partage & Sauvegarde */}
         <article className="ivy-card overflow-hidden rounded-2xl">
           <button
             type="button"

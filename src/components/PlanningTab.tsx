@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
 import { AlertCircle, BookOpen, Plus } from 'lucide-react';
-import { DAY_MAP, TRIP_DAYS } from '../data/days';
 import { getDayLabel, UI_TEXT } from '../i18n/translations';
 import { useTrip } from '../store/TripContext';
 import type { TripStep } from '../types/trip';
@@ -13,6 +12,7 @@ export function PlanningTab() {
   const {
     lang,
     state,
+    days,
     selectedDayId,
     setActiveTab,
     canEdit,
@@ -30,7 +30,7 @@ export function PlanningTab() {
   const [editingStep, setEditingStep] = useState<TripStep | undefined>(undefined);
 
   const t = UI_TEXT[lang];
-  const day = DAY_MAP[selectedDayId] ?? TRIP_DAYS[0];
+  const day = days.find((d) => d.id === selectedDayId) ?? days[0];
   const dayLbl = getDayLabel(day, lang);
   const dayWeather = weatherByDay[day.id];
 

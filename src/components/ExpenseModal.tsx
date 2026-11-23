@@ -1,8 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Trash2, X } from 'lucide-react';
 import { getCurrencyChipLabel } from '../data/currencies';
-import { TRIP_DAYS } from '../data/days';
-import { PAYMENT_METHODS } from '../data/expenses';
 import { getCategoryLabel, getDayLabel, UI_TEXT } from '../i18n/translations';
 import { useTrip } from '../store/TripContext';
 import type { Expense, ExpenseCategory } from '../types/trip';
@@ -22,7 +20,7 @@ export function ExpenseModal({
   onSave,
   onDelete,
 }: ExpenseModalProps) {
-  const { lang, state } = useTrip();
+  const { lang, state, days } = useTrip();
   const t = UI_TEXT[lang];
   const tripCurrencyChip = getCurrencyChipLabel(state.currencies.tripCurrency);
   const amountFieldLabel =
@@ -44,6 +42,11 @@ export function ExpenseModal({
   const [person, setPerson] = useState(initialExpense?.person ?? '');
   const [paid, setPaid] = useState(initialExpense?.paid ?? false);
   const [note, setNote] = useState(initialExpense?.note ?? '');
+
+  const paymentOptions =
+    paymentMethod && !state.paymentMethods.includes(paymentMethod)
+      ? [...state.paymentMethods, paymentMethod]
+      : state.paymentMethods;
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -106,7 +109,7 @@ export function ExpenseModal({
               className="w-full rounded-xl border border-[#ECE7DE] bg-white px-3 py-2.5 font-normal text-[#143B2B] focus:border-[#143B2B] focus:outline-none"
             >
               <option value="global">{t.budget.globalTitle}</option>
-              {TRIP_DAYS.map((d) => {
+              {days.map((d) => {
                 const dl = getDayLabel(d, lang);
                 return (
                   <option key={d.id} value={d.id}>
@@ -131,7 +134,7 @@ export function ExpenseModal({
               required
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Ex. Hot chocolates Covent Garden"
+              placeholder="Ex. Restaurant, billets, transport..."
               className="w-full rounded-xl border border-[#ECE7DE] bg-white px-3 py-2.5 font-normal text-[#143B2B] focus:border-[#143B2B] focus:outline-none"
             />
           </div>
@@ -196,7 +199,7 @@ export function ExpenseModal({
                 className="w-full rounded-xl border border-[#ECE7DE] bg-white px-3 py-2.5 font-normal text-[#143B2B] focus:border-[#143B2B] focus:outline-none"
               >
                 <option value="">{t.budget.unspecified}</option>
-                {PAYMENT_METHODS.map((method) => (
+                {paymentOptions.map((method) => (
                   <option key={method} value={method}>
                     {method}
                   </option>

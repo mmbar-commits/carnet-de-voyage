@@ -393,7 +393,7 @@ export async function pullRemoteState(familyCode: string): Promise<TripState | n
   }
 
   if (data && isValidTripState(data.payload)) {
-    return migrateTripState(data.payload);
+    return migrateTripState(data.payload, normalized);
   }
 
   return null;
@@ -445,7 +445,7 @@ export function subscribeToFamilySync(
         (payload) => {
           const nextRow = payload.new as Partial<SyncRow> | undefined;
           if (nextRow && isValidTripState(nextRow.payload)) {
-            onRemoteState(migrateTripState(nextRow.payload));
+            onRemoteState(migrateTripState(nextRow.payload, normalized));
           }
         }
       )

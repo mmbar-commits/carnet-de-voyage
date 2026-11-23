@@ -9,6 +9,15 @@ import {
   type ReactNode,
 } from 'react';
 import { TRIP_DAYS } from '../data/days';
+import {
+  buildMonogram,
+  buildTripSummary,
+  createBlankTripState,
+  createSkeletonTripState,
+  DEFAULT_LONDON_TRIP_ID,
+  generateTripCode,
+  type CreateBlankTripInput,
+} from '../data/tripFactory';
 import type {
   AuthUser,
   BonusActivity,
@@ -18,13 +27,17 @@ import type {
   Expense,
   Language,
   MemberRole,
+  PracticalNote,
   SyncStatus,
   TabId,
   TripAccessRole,
   TripCurrencies,
+  TripDay,
   TripMember,
+  TripMeta,
   TripState,
   TripStep,
+  TripSummary,
 } from '../types/trip';
 import {
   createDefaultState,
@@ -33,13 +46,15 @@ import {
   loadFamilyCode,
   loadLanguage,
   loadSelectedDay,
-  loadTripState,
+  loadTripsIndex,
+  loadTripStateForCode,
   migrateTripState,
   saveFamilyCode,
   saveLanguage,
   saveSelectedDay,
-  saveTripState,
+  saveTripStateForCode,
   STATE_VERSION,
+  upsertTripSummary,
 } from './storage';
 import {
   claimTripAsAdmin,
@@ -78,8 +93,35 @@ function generateId(prefix: string): string {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
+interface TripBundle {
+  code: string;
+  state: TripState;
+}
+
+function loadInitialTripBundle(): TripBundle {
+  const code = normalizeFamilyCode(loadFamilyCode()) || DEFAULT_LONDON_TRIP_ID;
+  const loaded = loadTripStateForCode(code);
+  if (loaded) {
+    return { code, state: loaded };
+  }
+  if (code === DEFAULT_LONDON_TRIP_ID) {
+    return { code, state: createDefaultState() };
+  }
+  return { code, state: createSkeletonTripState(code, STATE_VERSION) };
+}
+
 interface TripContextValue {
   state: TripState;
+  days: TripDay[];
+  trips: TripSummary[];
+  tripsModalOpen: boolean;
+  setTripsModalOpen: (open: boolean) => void;
+  switchTrip: (tripId: string) => void;
+  createNewTrip: (
+    input: CreateBlankTripInput
+  ) => Promise<{ ok: boolean; tripId?: string; error?: string }>;
+  updateTripMeta: (patch: Partial<TripMeta>) => void;
+
   lang: Language;
   activeTab: TabId;
   selectedDayId: string;
@@ -134,7 +176,7 @@ interface TripContextValue {
   // Carnet
   updateMemory: (dayId: string, note: string) => void;
 
-  // Budget & Voyageurs
+  // Budget, Voyageurs & Moyens de paiement
   toggleExpensePaid: (expenseId: string) => void;
   addExpense: (expense: Omit<Expense, 'id'>) => void;
   updateExpense: (expenseId: string, patch: Partial<Omit<Expense, 'id'>>) => void;
@@ -143,6 +185,13 @@ interface TripContextValue {
   updateCurrencies: (currencies: TripCurrencies, rate?: number) => void;
   addPerson: (name: string) => void;
   removePerson: (name: string) => void;
+  addPaymentMethod: (name: string) => void;
+  removePaymentMethod: (name: string) => void;
+
+  // Practical notes
+  addPracticalNote: (note: Omit<PracticalNote, 'id'>) => void;
+  updatePracticalNote: (id: string, patch: Partial<Omit<PracticalNote, 'id'>>) => void;
+  deletePracticalNote: (id: string) => void;
 
   // Infos & Sync
   toggleChecklistItem: (itemId: string) => void;
@@ -158,20 +207,58 @@ interface TripContextValue {
 const TripContext = createContext<TripContextValue | null>(null);
 
 export function TripProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<TripState>(() => loadTripState());
+  const [tripBundle, setTripBundle] = useState<TripBundle>(() => loadInitialTripBundle());
+  const familyCode = tripBundle.code;
+  const state = tripBundle.state;
+
+  const days = useMemo<TripDay[]>(
+    () => (state.days && state.days.length > 0 ? state.days : TRIP_DAYS),
+    [state.days]
+  );
+
+  const [localTrips, setLocalTrips] = useState<TripSummary[]>(() => {
+    const initial = loadTripsIndex();
+    const hasCurrent = initial.some((t) => t.id === tripBundle.code);
+    if (!hasCurrent) {
+      return upsertTripSummary(buildTripSummary(tripBundle.code, tripBundle.state));
+    }
+    return initial;
+  });
+  const [remoteMyTrips, setRemoteMyTrips] = useState<
+    { familyCode: string; role: MemberRole }[]
+  >([]);
+  const [tripsModalOpen, setTripsModalOpen] = useState<boolean>(false);
+
   const [lang, setLangState] = useState<Language>(() => loadLanguage());
   const [activeTab, setActiveTab] = useState<TabId>('planning');
-  const [selectedDayId, setSelectedDayIdState] = useState<string>(() => {
-    const stored = loadSelectedDay(TRIP_DAYS[0].id);
-    return TRIP_DAYS.some((d) => d.id === stored) ? stored : TRIP_DAYS[0].id;
+  const [selectedDayIdState, setSelectedDayIdState] = useState<string>(() => {
+    const initialDays =
+      tripBundle.state.days && tripBundle.state.days.length > 0
+        ? tripBundle.state.days
+        : TRIP_DAYS;
+    const stored = loadSelectedDay(initialDays[0].id);
+    return initialDays.some((d) => d.id === stored) ? stored : initialDays[0].id;
   });
-  const [familyCode, setFamilyCodeState] = useState<string>(() => loadFamilyCode());
+
+  const selectedDayId = useMemo(
+    () => (days.some((d) => d.id === selectedDayIdState) ? selectedDayIdState : days[0].id),
+    [days, selectedDayIdState]
+  );
+
+  useEffect(() => {
+    if (selectedDayId !== selectedDayIdState) {
+      setSelectedDayIdState(selectedDayId);
+      saveSelectedDay(selectedDayId);
+    }
+  }, [selectedDayId, selectedDayIdState]);
+
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(() => ({
     mode: isSupabaseConfigured() ? 'supabase_ready' : 'local',
-    familyCode: loadFamilyCode(),
+    familyCode: tripBundle.code,
   }));
+
   const [weatherByDay, setWeatherByDay] = useState<Record<string, DayWeather>>(() =>
-    loadCachedOrSeasonalWeather()
+    loadCachedOrSeasonalWeather(tripBundle.code, days, tripBundle.state.meta)
   );
 
   // Option A — Auth & role access state
@@ -190,10 +277,74 @@ export function TripProvider({ children }: { children: ReactNode }) {
 
   const applyingRemoteRef = useRef(false);
   const pushTimeoutRef = useRef<number | null>(null);
-  const stateRef = useRef(state);
-  stateRef.current = state;
+  const bundleRef = useRef(tripBundle);
+  bundleRef.current = tripBundle;
   const canEditRef = useRef(canEdit);
   canEditRef.current = canEdit;
+
+  // Keep trips index synced with current active trip's metadata
+  useEffect(() => {
+    const roleForActive: MemberRole | undefined =
+      tripRole === 'admin' || tripRole === 'editor' || tripRole === 'viewer'
+        ? tripRole
+        : undefined;
+    const summary = buildTripSummary(familyCode, state, roleForActive);
+    setLocalTrips(upsertTripSummary(summary));
+  }, [
+    familyCode,
+    state.meta.title,
+    state.meta.subtitle,
+    state.meta.destination,
+    state.meta.monogramTop,
+    state.meta.monogramBottom,
+    state.meta.startDate,
+    state.meta.endDate,
+    tripRole,
+  ]);
+
+  // Merge local trips index with remote memberships from Supabase
+  const trips = useMemo<TripSummary[]>(() => {
+    const roleMap = new Map<string, MemberRole>();
+    for (const r of remoteMyTrips) {
+      roleMap.set(r.familyCode, r.role);
+    }
+    if (tripRole === 'admin' || tripRole === 'editor' || tripRole === 'viewer') {
+      roleMap.set(familyCode, tripRole);
+    }
+
+    const byId = new Map<string, TripSummary>();
+    for (const item of localTrips) {
+      const role = roleMap.get(item.id) ?? item.role;
+      byId.set(item.id, role ? { ...item, role } : item);
+    }
+
+    for (const remote of remoteMyTrips) {
+      if (!byId.has(remote.familyCode)) {
+        const cached = loadTripStateForCode(remote.familyCode);
+        if (cached) {
+          byId.set(
+            remote.familyCode,
+            buildTripSummary(remote.familyCode, cached, remote.role)
+          );
+        } else {
+          const mono = buildMonogram(remote.familyCode, '');
+          byId.set(remote.familyCode, {
+            id: remote.familyCode,
+            title: remote.familyCode,
+            subtitle: remote.familyCode,
+            destination: remote.familyCode,
+            monogramTop: mono.top,
+            monogramBottom: '··',
+            startDate: '',
+            endDate: '',
+            role: remote.role,
+          });
+        }
+      }
+    }
+
+    return Array.from(byId.values());
+  }, [localTrips, remoteMyTrips, familyCode, tripRole]);
 
   // Keep budget tab inaccessible when hidden for viewers
   useEffect(() => {
@@ -202,19 +353,35 @@ export function TripProvider({ children }: { children: ReactNode }) {
     }
   }, [canViewBudget, activeTab]);
 
-  // Hybrid Open-Meteo weather: refresh silently on mount, visibilitychange & online when stale
+  // Dynamic multi-destination Open-Meteo weather
+  const dayIdsKey = useMemo(() => days.map((d) => d.id).join(','), [days]);
+  const weatherLat = state.meta.lat;
+  const weatherLng = state.meta.lng;
+  const weatherTz = state.meta.timezone;
+  const isLondonDefault = Boolean(state.meta.isLondonDefault);
+
   useEffect(() => {
+    const meta = {
+      lat: weatherLat,
+      lng: weatherLng,
+      timezone: weatherTz,
+      isLondonDefault,
+    };
+
+    // Immediately show cached or seasonal (London-only) weather for this trip
+    setWeatherByDay(loadCachedOrSeasonalWeather(familyCode, days, meta));
+
     let cancelled = false;
     let inFlight = false;
     let activeController: AbortController | null = null;
 
     const refreshWeather = () => {
-      if (cancelled || inFlight || !isWeatherCacheStale()) return;
+      if (cancelled || inFlight || !isWeatherCacheStale(familyCode, days)) return;
       if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
 
       inFlight = true;
       activeController = new AbortController();
-      void fetchOpenMeteoWeather(activeController.signal)
+      void fetchOpenMeteoWeather(familyCode, days, meta, activeController.signal)
         .then((next) => {
           if (!cancelled && next) {
             setWeatherByDay(next);
@@ -244,7 +411,7 @@ export function TripProvider({ children }: { children: ReactNode }) {
       document.removeEventListener('visibilitychange', handleVisibility);
       window.removeEventListener('online', handleOnline);
     };
-  }, []);
+  }, [familyCode, dayIdsKey, weatherLat, weatherLng, weatherTz, isLondonDefault]);
 
   // Subscribe to Supabase Auth session
   useEffect(() => {
@@ -272,10 +439,42 @@ export function TripProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  const switchTrip = useCallback((rawTripId: string) => {
+    const normalized = normalizeFamilyCode(rawTripId);
+    if (!normalized) return;
+
+    if (pushTimeoutRef.current) {
+      window.clearTimeout(pushTimeoutRef.current);
+      pushTimeoutRef.current = null;
+    }
+
+    const loaded = loadTripStateForCode(normalized);
+    const nextState =
+      loaded ??
+      (normalized === DEFAULT_LONDON_TRIP_ID
+        ? createDefaultState()
+        : createSkeletonTripState(normalized, STATE_VERSION));
+
+    applyingRemoteRef.current = true;
+    setTripBundle({ code: normalized, state: nextState });
+    saveFamilyCode(normalized);
+    setPreviewReadOnly(false);
+
+    const firstDayId = nextState.days[0]?.id ?? TRIP_DAYS[0].id;
+    setSelectedDayIdState(firstDayId);
+    saveSelectedDay(firstDayId);
+
+    setSyncStatus({
+      mode: isSupabaseConfigured() ? 'supabase_ready' : 'local',
+      familyCode: normalized,
+    });
+  }, []);
+
   const refreshAccess = useCallback(async () => {
     if (!isSupabaseConfigured() || !familyCode) {
       setTripRole('unclaimed');
       setTripMembers([]);
+      setRemoteMyTrips([]);
       setMembersSqlReady(true);
       return;
     }
@@ -284,23 +483,22 @@ export function TripProvider({ children }: { children: ReactNode }) {
       setMembersSqlReady(res.sqlReady);
       setTripRole(res.role);
       setTripMembers(res.members);
+      setRemoteMyTrips(res.myTrips);
 
-      // If user signed in and was invited to a trip different from current familyCode, switch automatically
+      // Only auto-switch if the user has NO access ('none') to the current trip and has another invited trip
       if (
         authUser &&
         res.sqlReady &&
-        (res.role === 'none' || res.role === 'unclaimed') &&
+        res.role === 'none' &&
         res.myTrips.length > 0 &&
         res.myTrips[0].familyCode !== familyCode
       ) {
-        const invitedCode = res.myTrips[0].familyCode;
-        setFamilyCodeState(invitedCode);
-        saveFamilyCode(invitedCode);
+        switchTrip(res.myTrips[0].familyCode);
       }
     } catch {
       // Keep current role state gracefully if offline
     }
-  }, [familyCode, authUser]);
+  }, [familyCode, authUser, switchTrip]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -326,9 +524,14 @@ export function TripProvider({ children }: { children: ReactNode }) {
     [setSelectedDayId]
   );
 
-  // Persist to localStorage + debounced optional Supabase push (only when canEdit)
+  // Persist to per-trip localStorage + debounced optional Supabase push (only when canEdit)
   useEffect(() => {
-    saveTripState(state);
+    // Avoid saving an empty remote skeleton before it's actually populated
+    const isEmptySkeleton =
+      !state.meta.isLondonDefault && state.updatedAt === DEFAULT_UPDATED_AT;
+    if (!isEmptySkeleton) {
+      saveTripStateForCode(familyCode, state);
+    }
 
     if (
       !isSupabaseConfigured() ||
@@ -345,21 +548,24 @@ export function TripProvider({ children }: { children: ReactNode }) {
       window.clearTimeout(pushTimeoutRef.current);
     }
 
+    const codeToPush = familyCode;
     pushTimeoutRef.current = window.setTimeout(() => {
-      if (!canEditRef.current) return;
+      if (!canEditRef.current || bundleRef.current.code !== codeToPush) return;
       setSyncStatus((prev) => ({ ...prev, mode: 'syncing', errorMessage: undefined }));
-      pushRemoteState(familyCode, stateRef.current)
+      pushRemoteState(codeToPush, bundleRef.current.state)
         .then(() => {
+          if (bundleRef.current.code !== codeToPush) return;
           setSyncStatus({
             mode: 'synced',
-            familyCode,
+            familyCode: codeToPush,
             lastSyncedAt: new Date().toISOString(),
           });
         })
         .catch((err: unknown) => {
+          if (bundleRef.current.code !== codeToPush) return;
           setSyncStatus({
             mode: 'error',
-            familyCode,
+            familyCode: codeToPush,
             errorMessage: err instanceof Error ? err.message : 'Erreur de synchronisation',
           });
         });
@@ -372,7 +578,7 @@ export function TripProvider({ children }: { children: ReactNode }) {
     };
   }, [state, familyCode]);
 
-  // Subscribe to Supabase Realtime if configured (re-runs on authUser change to attach JWT)
+  // Subscribe to Supabase Realtime for active familyCode (re-runs on authUser change to attach JWT)
   useEffect(() => {
     if (!isSupabaseConfigured() || !familyCode) {
       setSyncStatus({ mode: 'local', familyCode });
@@ -380,33 +586,40 @@ export function TripProvider({ children }: { children: ReactNode }) {
     }
 
     let cancelled = false;
-    setSyncStatus((prev) => ({ ...prev, mode: 'syncing', familyCode, errorMessage: undefined }));
+    const subscribedCode = familyCode;
+    setSyncStatus((prev) => ({
+      ...prev,
+      mode: 'syncing',
+      familyCode: subscribedCode,
+      errorMessage: undefined,
+    }));
 
     const syncFromRemote = () => {
-      pullRemoteState(familyCode)
+      pullRemoteState(subscribedCode)
         .then(async (remote) => {
-          if (cancelled) return;
-          if (remote && remote.updatedAt > stateRef.current.updatedAt) {
+          if (cancelled || bundleRef.current.code !== subscribedCode) return;
+          if (remote && remote.updatedAt > bundleRef.current.state.updatedAt) {
             applyingRemoteRef.current = true;
-            setState(remote);
+            setTripBundle({ code: subscribedCode, state: remote });
           } else if (
             !remote &&
             canEditRef.current &&
-            stateRef.current.updatedAt !== DEFAULT_UPDATED_AT
+            bundleRef.current.state.updatedAt !== DEFAULT_UPDATED_AT
           ) {
-            await pushRemoteState(familyCode, stateRef.current);
+            await pushRemoteState(subscribedCode, bundleRef.current.state);
           }
+          if (cancelled || bundleRef.current.code !== subscribedCode) return;
           setSyncStatus({
             mode: 'synced',
-            familyCode,
+            familyCode: subscribedCode,
             lastSyncedAt: new Date().toISOString(),
           });
         })
         .catch((err: unknown) => {
-          if (cancelled) return;
+          if (cancelled || bundleRef.current.code !== subscribedCode) return;
           setSyncStatus({
             mode: 'error',
-            familyCode,
+            familyCode: subscribedCode,
             errorMessage:
               err instanceof Error ? err.message : 'Connexion Supabase indisponible',
           });
@@ -425,13 +638,14 @@ export function TripProvider({ children }: { children: ReactNode }) {
     document.addEventListener('visibilitychange', handleVisibility);
     window.addEventListener('online', handleOnline);
 
-    const unsubscribe = subscribeToFamilySync(familyCode, (remote) => {
-      if (remote.updatedAt > stateRef.current.updatedAt) {
+    const unsubscribe = subscribeToFamilySync(subscribedCode, (remote) => {
+      if (cancelled || bundleRef.current.code !== subscribedCode) return;
+      if (remote.updatedAt > bundleRef.current.state.updatedAt) {
         applyingRemoteRef.current = true;
-        setState(remote);
+        setTripBundle({ code: subscribedCode, state: remote });
         setSyncStatus({
           mode: 'synced',
-          familyCode,
+          familyCode: subscribedCode,
           lastSyncedAt: new Date().toISOString(),
         });
       }
@@ -447,15 +661,109 @@ export function TripProvider({ children }: { children: ReactNode }) {
 
   const mutate = useCallback((updater: (prev: TripState) => TripState) => {
     if (!canEditRef.current) return;
-    setState((prev) => {
-      const next = updater(prev);
+    setTripBundle((prev) => {
+      const nextState = updater(prev.state);
       return {
-        ...next,
-        version: STATE_VERSION,
-        updatedAt: new Date().toISOString(),
+        code: prev.code,
+        state: {
+          ...nextState,
+          version: STATE_VERSION,
+          updatedAt: new Date().toISOString(),
+        },
       };
     });
   }, []);
+
+  const createNewTrip = useCallback(
+    async (
+      input: CreateBlankTripInput
+    ): Promise<{ ok: boolean; tripId?: string; error?: string }> => {
+      try {
+        const newTripId = generateTripCode(input.destination, input.startDate);
+        const newState = createBlankTripState(input, STATE_VERSION);
+
+        saveTripStateForCode(newTripId, newState);
+        const summary = buildTripSummary(
+          newTripId,
+          newState,
+          authUser ? 'admin' : undefined
+        );
+        setLocalTrips(upsertTripSummary(summary));
+
+        if (pushTimeoutRef.current) {
+          window.clearTimeout(pushTimeoutRef.current);
+          pushTimeoutRef.current = null;
+        }
+
+        applyingRemoteRef.current = true;
+        setTripBundle({ code: newTripId, state: newState });
+        saveFamilyCode(newTripId);
+        setPreviewReadOnly(false);
+
+        const firstDayId = newState.days[0]?.id ?? input.startDate;
+        setSelectedDayIdState(firstDayId);
+        saveSelectedDay(firstDayId);
+
+        if (isSupabaseConfigured()) {
+          try {
+            if (authUser) {
+              const role = await claimTripAsAdmin(newTripId);
+              if (role === 'admin' || role === 'editor' || role === 'viewer') {
+                setTripRole(role);
+              }
+            }
+            await pushRemoteState(newTripId, newState);
+            setSyncStatus({
+              mode: 'synced',
+              familyCode: newTripId,
+              lastSyncedAt: new Date().toISOString(),
+            });
+          } catch {
+            // Keep newly created trip working offline locally
+          }
+        }
+
+        return { ok: true, tripId: newTripId };
+      } catch (err: unknown) {
+        return {
+          ok: false,
+          error:
+            err instanceof Error
+              ? err.message
+              : 'Impossible de créer le voyage.',
+        };
+      }
+    },
+    [authUser]
+  );
+
+  const updateTripMeta = useCallback(
+    (patch: Partial<TripMeta>) => {
+      mutate((prev) => {
+        const nextDestination = patch.destination ?? prev.meta.destination;
+        const monogramPatch =
+          patch.destination &&
+          patch.destination !== prev.meta.destination &&
+          !patch.monogramTop &&
+          !prev.meta.isLondonDefault
+            ? (() => {
+                const m = buildMonogram(nextDestination, prev.meta.startDate);
+                return { monogramTop: m.top, monogramBottom: m.bottom };
+              })()
+            : {};
+
+        return {
+          ...prev,
+          meta: {
+            ...prev.meta,
+            ...monogramPatch,
+            ...patch,
+          },
+        };
+      });
+    },
+    [mutate]
+  );
 
   const setHideBudgetForViewers = useCallback(
     (hide: boolean) => {
@@ -491,18 +799,20 @@ export function TripProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     await signOutAuth();
     setAuthUser(null);
+    setRemoteMyTrips([]);
     setPreviewReadOnly(false);
   }, []);
 
   const claimCurrentTrip = useCallback(async () => {
     try {
-      const role = await claimTripAsAdmin(familyCode);
+      const code = bundleRef.current.code;
+      const role = await claimTripAsAdmin(code);
       await refreshAccess();
       if (
         (role === 'admin' || role === 'editor') &&
-        stateRef.current.updatedAt !== DEFAULT_UPDATED_AT
+        bundleRef.current.state.updatedAt !== DEFAULT_UPDATED_AT
       ) {
-        await pushRemoteState(familyCode, stateRef.current);
+        await pushRemoteState(code, bundleRef.current.state);
       }
       return { ok: true };
     } catch (err: unknown) {
@@ -511,12 +821,12 @@ export function TripProvider({ children }: { children: ReactNode }) {
         error: err instanceof Error ? err.message : 'Erreur lors de la protection',
       };
     }
-  }, [familyCode, refreshAccess]);
+  }, [refreshAccess]);
 
   const inviteMember = useCallback(
     async (email: string, role: MemberRole) => {
       try {
-        await inviteOrUpdateMember(familyCode, email, role);
+        await inviteOrUpdateMember(bundleRef.current.code, email, role);
         await refreshAccess();
         return { ok: true };
       } catch (err: unknown) {
@@ -526,7 +836,7 @@ export function TripProvider({ children }: { children: ReactNode }) {
         };
       }
     },
-    [familyCode, refreshAccess]
+    [refreshAccess]
   );
 
   const changeMemberRole = useCallback(
@@ -900,6 +1210,79 @@ export function TripProvider({ children }: { children: ReactNode }) {
     [mutate]
   );
 
+  const addPaymentMethod = useCallback(
+    (rawName: string) => {
+      const name = rawName.trim();
+      if (!name) return;
+      mutate((prev) => {
+        if (prev.paymentMethods.some((m) => m.toLowerCase() === name.toLowerCase())) {
+          return prev;
+        }
+        return {
+          ...prev,
+          paymentMethods: [...prev.paymentMethods, name],
+        };
+      });
+    },
+    [mutate]
+  );
+
+  const removePaymentMethod = useCallback(
+    (name: string) => {
+      mutate((prev) => ({
+        ...prev,
+        paymentMethods: prev.paymentMethods.filter((m) => m !== name),
+        expenses: prev.expenses.map((e) =>
+          e.paymentMethod === name ? { ...e, paymentMethod: undefined } : e
+        ),
+      }));
+    },
+    [mutate]
+  );
+
+  const addPracticalNote = useCallback(
+    (note: Omit<PracticalNote, 'id'>) => {
+      const title = note.title.trim();
+      const content = note.content.trim();
+      if (!title && !content) return;
+      mutate((prev) => ({
+        ...prev,
+        practicalNotes: [
+          ...prev.practicalNotes,
+          {
+            id: generateId('note'),
+            title: title || 'Note',
+            content,
+            ...(note.mapsQuery?.trim() ? { mapsQuery: note.mapsQuery.trim() } : {}),
+          },
+        ],
+      }));
+    },
+    [mutate]
+  );
+
+  const updatePracticalNote = useCallback(
+    (id: string, patch: Partial<Omit<PracticalNote, 'id'>>) => {
+      mutate((prev) => ({
+        ...prev,
+        practicalNotes: prev.practicalNotes.map((n) =>
+          n.id === id ? { ...n, ...patch } : n
+        ),
+      }));
+    },
+    [mutate]
+  );
+
+  const deletePracticalNote = useCallback(
+    (id: string) => {
+      mutate((prev) => ({
+        ...prev,
+        practicalNotes: prev.practicalNotes.filter((n) => n.id !== id),
+      }));
+    },
+    [mutate]
+  );
+
   const toggleChecklistItem = useCallback(
     (itemId: string) => {
       mutate((prev) => ({
@@ -937,49 +1320,46 @@ export function TripProvider({ children }: { children: ReactNode }) {
     [mutate]
   );
 
-  const setFamilyCode = useCallback((rawCode: string) => {
-    const normalized = normalizeFamilyCode(rawCode);
-    setFamilyCodeState(normalized);
-    saveFamilyCode(normalized);
-    setSyncStatus((prev) => ({
-      ...prev,
-      familyCode: normalized,
-      mode: isSupabaseConfigured() && normalized ? 'supabase_ready' : 'local',
-    }));
-  }, []);
+  const setFamilyCode = useCallback(
+    (rawCode: string) => {
+      switchTrip(rawCode);
+    },
+    [switchTrip]
+  );
 
   const triggerManualSync = useCallback(async () => {
-    if (!isSupabaseConfigured() || !familyCode) {
-      setSyncStatus({ mode: 'local', familyCode });
+    const code = bundleRef.current.code;
+    if (!isSupabaseConfigured() || !code) {
+      setSyncStatus({ mode: 'local', familyCode: code });
       return;
     }
 
-    setSyncStatus({ mode: 'syncing', familyCode });
+    setSyncStatus({ mode: 'syncing', familyCode: code });
     try {
       await refreshAccess();
-      const remote = await pullRemoteState(familyCode);
-      if (remote && remote.updatedAt > stateRef.current.updatedAt) {
+      const remote = await pullRemoteState(code);
+      if (remote && remote.updatedAt > bundleRef.current.state.updatedAt) {
         applyingRemoteRef.current = true;
-        setState(remote);
+        setTripBundle({ code, state: remote });
       } else if (canEditRef.current) {
-        await pushRemoteState(familyCode, stateRef.current);
+        await pushRemoteState(code, bundleRef.current.state);
       }
       setSyncStatus({
         mode: 'synced',
-        familyCode,
+        familyCode: code,
         lastSyncedAt: new Date().toISOString(),
       });
     } catch (err: unknown) {
       setSyncStatus({
         mode: 'error',
-        familyCode,
+        familyCode: code,
         errorMessage: err instanceof Error ? err.message : 'Erreur de synchronisation',
       });
     }
-  }, [familyCode, refreshAccess]);
+  }, [refreshAccess]);
 
   const exportTripJson = useCallback(() => {
-    return JSON.stringify(stateRef.current, null, 2);
+    return JSON.stringify(bundleRef.current.state, null, 2);
   }, []);
 
   const importTripJson = useCallback((raw: string): { ok: boolean; error?: string } => {
@@ -991,14 +1371,18 @@ export function TripProvider({ children }: { children: ReactNode }) {
       if (!isValidTripState(parsed)) {
         return {
           ok: false,
-          error: 'Le fichier JSON ne correspond pas au format Londres Noël 2026.',
+          error: 'Le fichier JSON ne correspond pas au format de voyage attendu.',
         };
       }
-      const migrated = migrateTripState(parsed);
-      setState({
-        ...migrated,
-        version: STATE_VERSION,
-        updatedAt: new Date().toISOString(),
+      const code = bundleRef.current.code;
+      const migrated = migrateTripState(parsed, code);
+      setTripBundle({
+        code,
+        state: {
+          ...migrated,
+          version: STATE_VERSION,
+          updatedAt: new Date().toISOString(),
+        },
       });
       return { ok: true };
     } catch {
@@ -1008,14 +1392,32 @@ export function TripProvider({ children }: { children: ReactNode }) {
 
   const resetTripState = useCallback(() => {
     if (!canEditRef.current) return;
-    const fresh = createDefaultState();
-    setState(fresh);
-    saveTripState(fresh);
+    const code = bundleRef.current.code;
+    const current = bundleRef.current.state;
+    const fresh: TripState = current.meta.isLondonDefault
+      ? createDefaultState()
+      : {
+          ...current,
+          version: STATE_VERSION,
+          updatedAt: new Date().toISOString(),
+          steps: [],
+          memories: {},
+          expenses: [],
+        };
+    setTripBundle({ code, state: fresh });
+    saveTripStateForCode(code, fresh);
   }, []);
 
   const value = useMemo<TripContextValue>(
     () => ({
       state,
+      days,
+      trips,
+      tripsModalOpen,
+      setTripsModalOpen,
+      switchTrip,
+      createNewTrip,
+      updateTripMeta,
       lang,
       activeTab,
       selectedDayId,
@@ -1066,6 +1468,11 @@ export function TripProvider({ children }: { children: ReactNode }) {
       updateCurrencies,
       addPerson,
       removePerson,
+      addPaymentMethod,
+      removePaymentMethod,
+      addPracticalNote,
+      updatePracticalNote,
+      deletePracticalNote,
       toggleChecklistItem,
       addChecklistItem,
       deleteChecklistItem,
@@ -1077,6 +1484,12 @@ export function TripProvider({ children }: { children: ReactNode }) {
     }),
     [
       state,
+      days,
+      trips,
+      tripsModalOpen,
+      switchTrip,
+      createNewTrip,
+      updateTripMeta,
       lang,
       activeTab,
       selectedDayId,
@@ -1124,6 +1537,11 @@ export function TripProvider({ children }: { children: ReactNode }) {
       updateCurrencies,
       addPerson,
       removePerson,
+      addPaymentMethod,
+      removePaymentMethod,
+      addPracticalNote,
+      updatePracticalNote,
+      deletePracticalNote,
       toggleChecklistItem,
       addChecklistItem,
       deleteChecklistItem,

@@ -6,6 +6,7 @@ import { CarnetTab } from './components/CarnetTab';
 import { Header } from './components/Header';
 import { InfosTab } from './components/InfosTab';
 import { PlanningTab } from './components/PlanningTab';
+import { TripsModal } from './components/TripsModal';
 import { TripProvider, useTrip } from './store/TripContext';
 
 function TripShell() {
@@ -23,6 +24,7 @@ function TripShell() {
       </main>
       <BottomNav />
       <AccountModal />
+      <TripsModal />
     </div>
   );
 }

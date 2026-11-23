@@ -11,7 +11,7 @@ import {
   TrainFront,
   UtensilsCrossed,
 } from 'lucide-react';
-import { TRIP_DAYS } from '../data/days';
+import { formatCurrencyAmount } from '../data/currencies';
 import {
   getBookingLabel,
   getDayLabel,
@@ -28,15 +28,26 @@ const BOOKING_STYLE: Record<BookingStatus, string> = {
   entree_libre: 'border-[#ECE7DE] bg-white text-[#5F7067]',
 };
 
-function buildMapsUrl(step: TripStep): string {
+function buildMapsUrl(
+  step: TripStep,
+  destination: string,
+  isLondonDefault?: boolean
+): string {
   const raw = step.location.trim();
   const segments = raw.split('→').map((s) => s.trim()).filter(Boolean);
   let target = segments.length > 1 ? segments[segments.length - 1] : raw;
 
-  if (/casablanca|cmn/i.test(target)) {
-    target = 'London Heathrow Airport, UK';
-  } else if (!/london|londres|heathrow|uk/i.test(target)) {
-    target = `${target}, London, UK`;
+  if (isLondonDefault) {
+    if (/casablanca|cmn/i.test(target)) {
+      target = 'London Heathrow Airport, UK';
+    } else if (!/london|londres|heathrow|uk/i.test(target)) {
+      target = `${target}, London, UK`;
+    }
+  } else if (
+    destination &&
+    !target.toLowerCase().includes(destination.toLowerCase())
+  ) {
+    target = target ? `${target}, ${destination}` : destination;
   }
 
   return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
@@ -67,10 +78,15 @@ export function StepCard({
   onMoveDown,
   onMoveToDay,
 }: StepCardProps) {
-  const { lang, canEdit } = useTrip();
+  const { lang, days, state, canEdit } = useTrip();
   const t = UI_TEXT[lang];
+  const locale = lang === 'fr' ? 'fr-FR' : 'en-GB';
   const [expanded, setExpanded] = useState(false);
-  const mapsUrl = buildMapsUrl(step);
+  const mapsUrl = buildMapsUrl(
+    step,
+    state.meta.destination,
+    state.meta.isLondonDefault
+  );
   const isMeal = step.kind === 'repas';
 
   return (
@@ -212,7 +228,13 @@ export function StepCard({
             <>
               <span className="text-[#D4CBB9]">•</span>
               <span className="font-normal text-[#143B2B]">
-                {step.costGbp === 0 ? t.free : `£${step.costGbp}`}
+                {step.costGbp === 0
+                  ? t.free
+                  : formatCurrencyAmount(
+                      step.costGbp,
+                      state.currencies.tripCurrency,
+                      locale
+                    )}
               </span>
             </>
           )}
@@ -293,7 +315,7 @@ export function StepCard({
                   onChange={(e) => onMoveToDay(e.target.value)}
                   className="h-7 rounded-lg border border-[#ECE7DE] bg-[#FAF8F4] px-2 text-[11px] font-normal text-[#143B2B]"
                 >
-                  {TRIP_DAYS.map((d) => {
+                  {days.map((d) => {
                     const dl = getDayLabel(d, lang);
                     return (
                       <option key={d.id} value={d.id}>

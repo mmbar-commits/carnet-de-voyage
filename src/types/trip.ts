@@ -182,9 +182,44 @@ export interface TripMember {
   createdAt?: string;
 }
 
+export interface TripMeta {
+  title: string;
+  subtitle: string;
+  destination: string;
+  monogramTop: string;
+  monogramBottom: string;
+  startDate: string;
+  endDate: string;
+  lat: number;
+  lng: number;
+  timezone: string;
+  isLondonDefault?: boolean;
+}
+
+export interface PracticalNote {
+  id: string;
+  title: string;
+  content: string;
+  mapsQuery?: string;
+}
+
+export interface TripSummary {
+  id: string;
+  title: string;
+  subtitle: string;
+  destination: string;
+  monogramTop: string;
+  monogramBottom: string;
+  startDate: string;
+  endDate: string;
+  role?: MemberRole;
+}
+
 export interface TripState {
   version: number;
   updatedAt: string;
+  meta: TripMeta;
+  days: TripDay[];
   steps: TripStep[];
   memories: Record<string, JournalMemory>;
   expenses: Expense[];
@@ -192,5 +227,7 @@ export interface TripState {
   rates: ExchangeRates;
   currencies: TripCurrencies;
   people: string[];
+  paymentMethods: string[];
+  practicalNotes: PracticalNote[];
   hideBudgetForViewers?: boolean;
 }

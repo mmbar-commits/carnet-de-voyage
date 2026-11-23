@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ArrowRight,
   CalendarPlus,
@@ -8,25 +8,46 @@ import {
   MapPin,
 } from 'lucide-react';
 import { BONUS_ACTIVITIES } from '../data/bonusActivities';
-import { DAY_MAP, TRIP_DAYS } from '../data/days';
 import { getDayLabel, getTagLabel, UI_TEXT } from '../i18n/translations';
 import { useTrip } from '../store/TripContext';
-import type { ActivityTag, BonusActivity } from '../types/trip';
+import type { ActivityTag, BonusActivity, TripDay } from '../types/trip';
 
 type ScopeFilter = 'all' | 'planned' | 'bonus';
 const ALL_TAGS: ActivityTag[] = ['gratuit', 'resident_th', 'interieur', 'top_4_ans'];
+const GENERIC_TAGS: ActivityTag[] = ['gratuit', 'interieur', 'top_4_ans'];
 
 export function ActivitesTab() {
-  const { lang, state, selectedDayId, assignBonusActivity, navigateToDay, canEdit } =
+  const { lang, state, days, selectedDayId, assignBonusActivity, navigateToDay, canEdit } =
     useTrip();
   const t = UI_TEXT[lang];
-  const [scope, setScope] = useState<ScopeFilter>('bonus');
+  const isLondon = Boolean(state.meta.isLondonDefault);
+
+  const [scope, setScope] = useState<ScopeFilter>(() =>
+    isLondon ? 'bonus' : 'planned'
+  );
   const [activeTags, setActiveTags] = useState<ActivityTag[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [assigningId, setAssigningId] = useState<string | null>(null);
   const [targetDayId, setTargetDayId] = useState<string>(selectedDayId);
   const [targetTime, setTargetTime] = useState<string>('14h30');
   const [justAssigned, setJustAssigned] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    setScope(isLondon ? 'bonus' : 'planned');
+    setActiveTags([]);
+    setAssigningId(null);
+  }, [isLondon]);
+
+  useEffect(() => {
+    setTargetDayId(selectedDayId);
+  }, [selectedDayId]);
+
+  const dayMap = useMemo<Record<string, TripDay>>(
+    () => Object.fromEntries(days.map((d) => [d.id, d])),
+    [days]
+  );
+
+  const visibleTags = isLondon ? ALL_TAGS : GENERIC_TAGS;
 
   const toggleTag = (tag: ActivityTag) => {
     setActiveTags((prev) =>
@@ -50,21 +71,21 @@ export function ActivitesTab() {
   );
 
   const filteredPlanned = useMemo(() => {
-    if (scope === 'bonus') return [];
+    if (isLondon && scope === 'bonus') return [];
     return plannedActivities.filter((step) => {
       if (activeTags.length === 0) return true;
       const stepTags = step.tags ?? [];
       return activeTags.every((tag) => stepTags.includes(tag));
     });
-  }, [scope, plannedActivities, activeTags]);
+  }, [isLondon, scope, plannedActivities, activeTags]);
 
   const filteredBonus = useMemo(() => {
-    if (scope === 'planned') return [];
+    if (!isLondon || scope === 'planned') return [];
     return BONUS_ACTIVITIES.filter((act) => {
       if (activeTags.length === 0) return true;
       return activeTags.every((tag) => act.tags.includes(tag));
     });
-  }, [scope, activeTags]);
+  }, [isLondon, scope, activeTags]);
 
   const openAssignPicker = (activity: BonusActivity) => {
     setAssigningId(activity.id);
@@ -82,39 +103,43 @@ export function ActivitesTab() {
     <section id="tab-panel-activites" className="space-y-5">
       <div className="pt-2">
         <span className="text-[11px] font-normal uppercase tracking-[0.16em] text-[#B39258]">
-          {t.activities.eyebrow}
+          {isLondon
+            ? t.activities.eyebrow
+            : `${state.meta.destination} · ${plannedActivities.length} ${t.activities.planned.toLowerCase()}`}
         </span>
         <h2 className="font-editorial mt-1 text-[30px] font-normal leading-tight text-[#143B2B]">
-          {t.activities.title}
+          {isLondon ? t.activities.title : t.nav.activites}
         </h2>
       </div>
 
-      <div className="grid grid-cols-3 gap-1 rounded-2xl border border-[#ECE7DE] bg-white p-1">
-        {(
-          [
-            ['bonus', `${t.activities.bonus} (${BONUS_ACTIVITIES.length})`],
-            ['planned', `${t.activities.planned} (${plannedActivities.length})`],
-            ['all', t.activities.all],
-          ] as const
-        ).map(([val, label]) => (
-          <button
-            key={val}
-            id={`activities-scope-${val}`}
-            type="button"
-            onClick={() => setScope(val)}
-            className={`rounded-xl py-2 text-[12px] transition ${
-              scope === val
-                ? 'bg-[#143B2B] font-medium text-[#FAF8F4]'
-                : 'font-light text-[#5F7067] hover:text-[#143B2B]'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      {isLondon && (
+        <div className="grid grid-cols-3 gap-1 rounded-2xl border border-[#ECE7DE] bg-white p-1">
+          {(
+            [
+              ['bonus', `${t.activities.bonus} (${BONUS_ACTIVITIES.length})`],
+              ['planned', `${t.activities.planned} (${plannedActivities.length})`],
+              ['all', t.activities.all],
+            ] as const
+          ).map(([val, label]) => (
+            <button
+              key={val}
+              id={`activities-scope-${val}`}
+              type="button"
+              onClick={() => setScope(val)}
+              className={`rounded-xl py-2 text-[12px] transition ${
+                scope === val
+                  ? 'bg-[#143B2B] font-medium text-[#FAF8F4]'
+                  : 'font-light text-[#5F7067] hover:text-[#143B2B]'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="no-scrollbar flex items-center gap-2 overflow-x-auto pb-0.5">
-        {ALL_TAGS.map((tag) => {
+        {visibleTags.map((tag) => {
           const active = activeTags.includes(tag);
           return (
             <button
@@ -144,7 +169,7 @@ export function ActivitesTab() {
 
           {filteredBonus.map((act) => {
             const assignedDayId = assignedBonusMap.get(act.id) || justAssigned[act.id];
-            const assignedDay = assignedDayId ? DAY_MAP[assignedDayId] : undefined;
+            const assignedDay = assignedDayId ? dayMap[assignedDayId] : undefined;
             const isPicking = assigningId === act.id;
             const isExpanded = expandedId === act.id;
 
@@ -197,7 +222,7 @@ export function ActivitesTab() {
                           onChange={(e) => setTargetDayId(e.target.value)}
                           className="col-span-2 rounded-lg border border-[#ECE7DE] bg-white px-2.5 py-2 text-[12px] font-normal text-[#143B2B]"
                         >
-                          {TRIP_DAYS.map((d) => {
+                          {days.map((d) => {
                             const dl = getDayLabel(d, lang);
                             return (
                               <option key={d.id} value={d.id}>
@@ -284,13 +309,13 @@ export function ActivitesTab() {
 
       {filteredPlanned.length > 0 && (
         <div className="space-y-3">
-          {scope === 'all' && (
+          {isLondon && scope === 'all' && (
             <h3 className="font-editorial pt-1 text-[22px] font-normal text-[#143B2B]">
               {t.activities.plannedHeading}
             </h3>
           )}
           {filteredPlanned.map((step) => {
-            const day = DAY_MAP[step.dayId];
+            const day = dayMap[step.dayId];
             const dl = day ? getDayLabel(day, lang) : undefined;
             return (
               <div
@@ -332,16 +357,22 @@ export function ActivitesTab() {
           <p className="font-editorial text-[20px] font-normal text-[#143B2B]">
             {t.activities.empty}
           </p>
-          <button
-            type="button"
-            onClick={() => {
-              setScope('all');
-              setActiveTags([]);
-            }}
-            className="mt-3 rounded-xl bg-[#143B2B] px-4 py-2 text-[12px] font-normal text-[#FAF8F4]"
-          >
-            {t.activities.showAll}
-          </button>
+          {activeTags.length > 0 || (isLondon && scope !== 'all') ? (
+            <button
+              type="button"
+              onClick={() => {
+                setScope(isLondon ? 'all' : 'planned');
+                setActiveTags([]);
+              }}
+              className="mt-3 rounded-xl bg-[#143B2B] px-4 py-2 text-[12px] font-normal text-[#FAF8F4]"
+            >
+              {t.activities.showAll}
+            </button>
+          ) : (
+            <p className="mt-1.5 text-[12.5px] font-light text-[#5F7067]">
+              {t.freeDayDesc}
+            </p>
+          )}
         </div>
       )}
     </section>

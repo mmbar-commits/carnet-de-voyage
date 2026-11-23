@@ -10,11 +10,9 @@ import {
   SlidersHorizontal,
 } from 'lucide-react';
 import { formatCurrencyAmount, getCurrencyChipLabel } from '../data/currencies';
-import { DAY_MAP, TRIP_DAYS } from '../data/days';
-import { PAYMENT_METHODS } from '../data/expenses';
 import { getCategoryLabel, getDayLabel, UI_TEXT } from '../i18n/translations';
 import { useTrip } from '../store/TripContext';
-import type { DisplayCurrency, Expense, ExpenseCategory } from '../types/trip';
+import type { DisplayCurrency, Expense, ExpenseCategory, TripDay } from '../types/trip';
 import { ExpenseModal } from './ExpenseModal';
 
 const ALL_CATEGORIES: ExpenseCategory[] = [
@@ -28,6 +26,7 @@ export function BudgetTab() {
   const {
     lang,
     state,
+    days,
     canEdit,
     toggleExpensePaid,
     addExpense,
@@ -38,6 +37,12 @@ export function BudgetTab() {
 
   const t = UI_TEXT[lang];
   const locale = lang === 'fr' ? 'fr-FR' : 'en-GB';
+  const isLondon = Boolean(state.meta.isLondonDefault);
+
+  const dayMap = useMemo<Record<string, TripDay>>(
+    () => Object.fromEntries(days.map((d) => [d.id, d])),
+    [days]
+  );
 
   const [currency, setCurrency] = useState<DisplayCurrency>('trip');
   const [categoryFilter, setCategoryFilter] = useState<ExpenseCategory | 'all'>(
@@ -92,14 +97,14 @@ export function BudgetTab() {
   const totals = useMemo(() => {
     let total = 0;
     let paid = 0;
-    let savedTh = 0;
+    let actualSavedTh = 0;
     for (const exp of filteredExpenses) {
       total += exp.amountGbp;
       if (exp.paid) paid += exp.amountGbp;
     }
     for (const exp of state.expenses) {
       if (exp.isTowerHamletsBenefit && exp.savedGbp) {
-        savedTh += exp.savedGbp;
+        actualSavedTh += exp.savedGbp;
       }
     }
     return {
@@ -107,9 +112,10 @@ export function BudgetTab() {
       paid,
       remaining: Math.max(0, total - paid),
       paidPct: total > 0 ? Math.round((paid / total) * 100) : 0,
-      savedTh: savedTh > 0 ? savedTh : 120,
+      savedTh: actualSavedTh > 0 ? actualSavedTh : isLondon ? 120 : 0,
+      showThSavings: isLondon || actualSavedTh > 0,
     };
-  }, [filteredExpenses, state.expenses]);
+  }, [filteredExpenses, state.expenses, isLondon]);
 
   const dayGroups = useMemo(() => {
     const list: {
@@ -126,7 +132,7 @@ export function BudgetTab() {
         items: filteredExpenses.filter((e) => e.dayId === 'global'),
         subtotalGbp: 0,
       },
-      ...TRIP_DAYS.map((day) => {
+      ...days.map((day) => {
         const dl = getDayLabel(day, lang);
         return {
           id: day.id,
@@ -142,7 +148,7 @@ export function BudgetTab() {
       ...g,
       subtotalGbp: g.items.reduce((sum, i) => sum + i.amountGbp, 0),
     }));
-  }, [filteredExpenses, lang, t.budget.globalBadge, t.budget.globalTitle]);
+  }, [filteredExpenses, days, lang, t.budget.globalBadge, t.budget.globalTitle]);
 
   const categoryGroups = useMemo(() => {
     return ALL_CATEGORIES.map((cat) => {
@@ -157,7 +163,7 @@ export function BudgetTab() {
   }, [state.expenses, lang]);
 
   const paymentGroups = useMemo(() => {
-    const known = new Set<string>(PAYMENT_METHODS);
+    const known = new Set<string>(state.paymentMethods);
     const extras = new Set<string>();
     for (const exp of state.expenses) {
       if (exp.paymentMethod && !known.has(exp.paymentMethod)) {
@@ -165,7 +171,7 @@ export function BudgetTab() {
       }
     }
 
-    const orderedMethods = [...PAYMENT_METHODS, ...Array.from(extras)];
+    const orderedMethods = [...state.paymentMethods, ...Array.from(extras)];
     const groups = orderedMethods.map((method) => {
       const items = state.expenses.filter((e) => e.paymentMethod === method);
       return {
@@ -185,7 +191,7 @@ export function BudgetTab() {
     });
 
     return groups;
-  }, [state.expenses, t.budget.unspecified]);
+  }, [state.expenses, state.paymentMethods, t.budget.unspecified]);
 
   const peopleGroups = useMemo(() => {
     const known = new Set<string>(state.people);
@@ -231,7 +237,7 @@ export function BudgetTab() {
     item: Expense,
     options?: { showDay?: boolean; showCategory?: boolean; keyPrefix?: string }
   ) => {
-    const dayObj = item.dayId !== 'global' ? DAY_MAP[item.dayId] : undefined;
+    const dayObj = item.dayId !== 'global' ? dayMap[item.dayId] : undefined;
     const dl = dayObj ? getDayLabel(dayObj, lang) : undefined;
     const dayLabel =
       dayObj && dl
@@ -333,7 +339,22 @@ export function BudgetTab() {
       <div className="flex items-end justify-between gap-2 pt-2">
         <div>
           <span className="text-[11px] font-normal uppercase tracking-[0.16em] text-[#B39258]">
-            {t.budget.eyebrow}
+            {state.people.length}{' '}
+            {lang === 'fr'
+              ? state.people.length > 1
+                ? 'Voyageurs'
+                : 'Voyageur'
+              : state.people.length > 1
+                ? 'Travellers'
+                : 'Traveller'}{' '}
+            · {days.length}{' '}
+            {lang === 'fr'
+              ? days.length > 1
+                ? 'Jours'
+                : 'Jour'
+              : days.length > 1
+                ? 'Days'
+                : 'Day'}
           </span>
           <h2 className="font-editorial mt-1 text-[30px] font-normal leading-tight text-[#143B2B]">
             {t.budget.title}
@@ -464,12 +485,14 @@ export function BudgetTab() {
           </div>
         </div>
 
-        <div className="mt-4 flex items-center gap-2 border-t border-[#F2EDE4] pt-3.5 text-[12px] font-light text-[#83662F]">
-          <Award className="h-3.5 w-3.5 shrink-0 stroke-[1.5] text-[#B39258]" />
-          <span>
-            ~{formatPrimary(Math.round(totals.savedTh))} {t.budget.thSaved}
-          </span>
-        </div>
+        {totals.showThSavings && (
+          <div className="mt-4 flex items-center gap-2 border-t border-[#F2EDE4] pt-3.5 text-[12px] font-light text-[#83662F]">
+            <Award className="h-3.5 w-3.5 shrink-0 stroke-[1.5] text-[#B39258]" />
+            <span>
+              ~{formatPrimary(Math.round(totals.savedTh))} {t.budget.thSaved}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Category Filter Pills */}

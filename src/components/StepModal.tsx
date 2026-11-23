@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from 'react';
 import { Trash2, X } from 'lucide-react';
-import { TRIP_DAYS } from '../data/days';
+import { getCurrencyChipLabel } from '../data/currencies';
+import { getDayLabel } from '../i18n/translations';
+import { useTrip } from '../store/TripContext';
 import type {
   BookingStatus,
   KidCompatibility,
@@ -23,6 +25,9 @@ export function StepModal({
   onSave,
   onDelete,
 }: StepModalProps) {
+  const { days, state, lang } = useTrip();
+  const tripCurrencyChip = getCurrencyChipLabel(state.currencies.tripCurrency);
+
   const [dayId, setDayId] = useState(initialStep?.dayId ?? defaultDayId);
   const [kind, setKind] = useState<StepKind>(initialStep?.kind ?? 'activite');
   const [timeStart, setTimeStart] = useState(initialStep?.timeStart ?? '10h30');
@@ -61,7 +66,7 @@ export function StepModal({
       timeStart: timeStart.trim() || '10h00',
       timeEnd: timeEnd.trim() || undefined,
       title: title.trim(),
-      location: location.trim() || 'Londres',
+      location: location.trim() || state.meta.destination,
       transport: transport.trim() || undefined,
       description: description.trim() || 'Étape familiale ajoutée au planning.',
       ayaRating,
@@ -142,11 +147,15 @@ export function StepModal({
                 onChange={(e) => setDayId(e.target.value)}
                 className="w-full rounded-xl border border-[#E7E2D8] bg-white px-3 py-2 text-[#143B2B] focus:border-[#143B2B] focus:outline-none"
               >
-                {TRIP_DAYS.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    J{d.dayNumber} · {d.dateShort}
-                  </option>
-                ))}
+                {days.map((d) => {
+                  const dl = getDayLabel(d, lang);
+                  return (
+                    <option key={d.id} value={d.id}>
+                      {lang === 'fr' ? 'J' : 'D'}
+                      {d.dayNumber} · {dl.dateShort}
+                    </option>
+                  );
+                })}
               </select>
             </div>
             <div>
@@ -184,7 +193,7 @@ export function StepModal({
               required
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Ex. Chocolat chaud chez Fortnum & Mason"
+              placeholder="Ex. Visite, balade ou restaurant..."
               className="w-full rounded-xl border border-[#E7E2D8] bg-white px-3 py-2 text-[#143B2B] focus:border-[#143B2B] focus:outline-none"
             />
           </div>
@@ -198,7 +207,7 @@ export function StepModal({
                 type="text"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
-                placeholder="Piccadilly, Mayfair"
+                placeholder={state.meta.destination}
                 className="w-full rounded-xl border border-[#E7E2D8] bg-white px-3 py-2 text-[#143B2B] focus:border-[#143B2B] focus:outline-none"
               />
             </div>
@@ -210,7 +219,7 @@ export function StepModal({
                 type="text"
                 value={transport}
                 onChange={(e) => setTransport(e.target.value)}
-                placeholder="À pied / Piccadilly Line"
+                placeholder="À pied / Métro"
                 className="w-full rounded-xl border border-[#E7E2D8] bg-white px-3 py-2 text-[#143B2B] focus:border-[#143B2B] focus:outline-none"
               />
             </div>
@@ -246,7 +255,7 @@ export function StepModal({
             </div>
             <div>
               <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-[#4C6358]">
-                Coût prévu (£ GBP)
+                Coût prévu ({tripCurrencyChip})
               </label>
               <input
                 type="number"

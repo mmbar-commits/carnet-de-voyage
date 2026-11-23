@@ -1,13 +1,14 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   AlertCircle,
   CalendarDays,
   Check,
+  Clock,
   ExternalLink,
   Feather,
   Map as MapIcon,
+  MapPin,
 } from 'lucide-react';
-import { DAY_MAP, TRIP_DAYS } from '../data/days';
 import { JOURNAL_CONTENT } from '../data/journal';
 import { getDayLabel, UI_TEXT } from '../i18n/translations';
 import { useTrip } from '../store/TripContext';
@@ -39,17 +40,54 @@ function buildExternalRouteUrl(route: DayRoute): string {
 }
 
 export function CarnetTab() {
-  const { lang, selectedDayId, state, updateMemory, setActiveTab, canEdit, weatherByDay } =
-    useTrip();
+  const {
+    lang,
+    days,
+    selectedDayId,
+    state,
+    updateMemory,
+    setActiveTab,
+    canEdit,
+    weatherByDay,
+  } = useTrip();
   const [justSaved, setJustSaved] = useState(false);
 
   const t = UI_TEXT[lang];
-  const day = DAY_MAP[selectedDayId] ?? TRIP_DAYS[0];
+  const day = days.find((d) => d.id === selectedDayId) ?? days[0];
   const dayLbl = getDayLabel(day, lang);
   const dayWeather = weatherByDay[day.id];
-  const entry = JOURNAL_CONTENT[day.id];
+  const entry = state.meta.isLondonDefault ? JOURNAL_CONTENT[day.id] : undefined;
   const memory = state.memories[day.id];
   const memoryText = memory?.note ?? '';
+
+  const daySteps = useMemo(
+    () =>
+      state.steps
+        .filter((s) => s.dayId === day.id)
+        .sort((a, b) => a.order - b.order),
+    [state.steps, day.id]
+  );
+
+  const hasCoords =
+    typeof state.meta.lat === 'number' &&
+    Number.isFinite(state.meta.lat) &&
+    typeof state.meta.lng === 'number' &&
+    Number.isFinite(state.meta.lng);
+
+  const fallbackRoute = useMemo<DayRoute | null>(() => {
+    if (!hasCoords) return null;
+    return {
+      mode: 'w',
+      stops: [
+        {
+          label: state.meta.destination,
+          query: state.meta.destination,
+          lat: state.meta.lat,
+          lng: state.meta.lng,
+        },
+      ],
+    };
+  }, [hasCoords, state.meta.destination, state.meta.lat, state.meta.lng]);
 
   const handleNoteChange = (nextVal: string) => {
     if (!canEdit) return;
@@ -71,7 +109,19 @@ export function CarnetTab() {
       })
     : null;
 
-  const externalMapUrl = buildExternalRouteUrl(entry.route);
+  const activeRoute = entry?.route ?? fallbackRoute;
+  const externalMapUrl = entry
+    ? buildExternalRouteUrl(entry.route)
+    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+        state.meta.destination
+      )}`;
+
+  const memoryPrompts = state.meta.isLondonDefault
+    ? t.journal.prompts
+    : t.journal.genericPrompts;
+
+  const ofDaysText =
+    lang === 'fr' ? `sur ${days.length}` : `of ${days.length}`;
 
   return (
     <section id="tab-panel-carnet" className="space-y-5">
@@ -81,7 +131,7 @@ export function CarnetTab() {
       <article className="ivy-card rounded-3xl px-5 py-6">
         <div className="flex items-center justify-between gap-2">
           <span className="text-[11px] font-normal uppercase tracking-[0.18em] text-[#B39258]">
-            {t.journal.badge} · {t.dayPrefix} {day.dayNumber} {t.ofDays}
+            {t.journal.badge} · {t.dayPrefix} {day.dayNumber} {ofDaysText}
           </span>
           <button
             type="button"
@@ -97,67 +147,107 @@ export function CarnetTab() {
           {dayLbl.dateLong}
         </h2>
         <p className="font-editorial mt-1 text-[19px] font-normal italic text-[#5F7067]">
-          {entry.subtitle}
+          {entry ? entry.subtitle : day.title}
         </p>
 
         {dayWeather && (
           <WeatherStrip weather={dayWeather} lang={lang} surface="ivory" className="mt-3.5" />
         )}
 
-        <p className="font-margin mt-4 border-l border-[#B39258] pl-3.5 text-[22px] font-normal leading-snug text-[#8F7038]">
-          « {entry.marginQuote} »
-        </p>
-
-        {day.criticalBanner && (
-          <div className="mt-5 flex items-start gap-2 rounded-2xl bg-[#FCF5F5] px-3.5 py-3 text-[12.5px] font-light leading-relaxed text-[#7C2D36]">
-            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 stroke-[1.5]" />
-            <p>
-              <span className="font-medium">{day.criticalBanner.title} — </span>
-              {day.criticalBanner.message}
+        {entry ? (
+          <>
+            <p className="font-margin mt-4 border-l border-[#B39258] pl-3.5 text-[22px] font-normal leading-snug text-[#8F7038]">
+              « {entry.marginQuote} »
             </p>
+
+            {day.criticalBanner && (
+              <div className="mt-5 flex items-start gap-2 rounded-2xl bg-[#FCF5F5] px-3.5 py-3 text-[12.5px] font-light leading-relaxed text-[#7C2D36]">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 stroke-[1.5]" />
+                <p>
+                  <span className="font-medium">{day.criticalBanner.title} — </span>
+                  {day.criticalBanner.message}
+                </p>
+              </div>
+            )}
+
+            <div className="mt-6 space-y-6 divide-y divide-[#F1ECE2]">
+              <div className="pt-0">
+                <h3 className="font-editorial text-[21px] font-medium text-[#143B2B]">
+                  {t.journal.morning}
+                </h3>
+                <p className="font-hand mt-2.5 text-[13.5px] font-light leading-[2.05] text-[#143B2B]/90">
+                  {entry.morning}
+                </p>
+              </div>
+
+              <div className="pt-5">
+                <h3 className="font-editorial text-[21px] font-medium text-[#143B2B]">
+                  {t.journal.lunch}
+                </h3>
+                <p className="mt-0.5 text-[11.5px] font-normal tracking-wide text-[#8F7038]">
+                  {entry.lunchTitle}
+                </p>
+                <p className="font-hand mt-2.5 text-[13.5px] font-light leading-[2.05] text-[#143B2B]/90">
+                  {entry.lunch}
+                </p>
+              </div>
+
+              <div className="pt-5">
+                <h3 className="font-editorial text-[21px] font-medium text-[#143B2B]">
+                  {t.journal.afternoon}
+                </h3>
+                <p className="font-hand mt-2.5 text-[13.5px] font-light leading-[2.05] text-[#143B2B]/90">
+                  {entry.afternoon}
+                </p>
+              </div>
+
+              <div className="pt-5">
+                <h3 className="font-editorial text-[20px] font-medium text-[#143B2B]">
+                  {t.journal.logistics}
+                </h3>
+                <p className="mt-2 text-[13px] font-light leading-[1.7] text-[#5F7067]">
+                  {entry.logisticsNote}
+                </p>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="mt-5 border-t border-[#F1ECE2] pt-4">
+            <h3 className="font-editorial text-[20px] font-medium text-[#143B2B]">
+              {t.journal.plannedStepsTitle}
+            </h3>
+            {daySteps.length === 0 ? (
+              <p className="mt-2 text-[13px] font-light leading-relaxed text-[#5F7067]">
+                {t.journal.noPlannedSteps}
+              </p>
+            ) : (
+              <ul className="mt-3 space-y-2.5">
+                {daySteps.map((step) => (
+                  <li
+                    key={step.id}
+                    className="flex items-start gap-2.5 rounded-2xl border border-[#F1ECE2] bg-[#FAF8F4]/70 px-3.5 py-2.5"
+                  >
+                    <span className="mt-0.5 inline-flex shrink-0 items-center gap-1 text-[11.5px] font-normal tabular-nums text-[#8F7038]">
+                      <Clock className="h-3 w-3 stroke-[1.5]" />
+                      {step.timeStart}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="font-editorial text-[18px] font-medium leading-snug text-[#143B2B]">
+                        {step.title}
+                      </p>
+                      {step.location && (
+                        <p className="mt-0.5 flex items-center gap-1 text-[11.5px] font-light text-[#5F7067]">
+                          <MapPin className="h-3 w-3 shrink-0 stroke-[1.5] text-[#B39258]" />
+                          <span className="truncate">{step.location}</span>
+                        </p>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         )}
-
-        <div className="mt-6 space-y-6 divide-y divide-[#F1ECE2]">
-          <div className="pt-0">
-            <h3 className="font-editorial text-[21px] font-medium text-[#143B2B]">
-              {t.journal.morning}
-            </h3>
-            <p className="font-hand mt-2.5 text-[13.5px] font-light leading-[2.05] text-[#143B2B]/90">
-              {entry.morning}
-            </p>
-          </div>
-
-          <div className="pt-5">
-            <h3 className="font-editorial text-[21px] font-medium text-[#143B2B]">
-              {t.journal.lunch}
-            </h3>
-            <p className="mt-0.5 text-[11.5px] font-normal tracking-wide text-[#8F7038]">
-              {entry.lunchTitle}
-            </p>
-            <p className="font-hand mt-2.5 text-[13.5px] font-light leading-[2.05] text-[#143B2B]/90">
-              {entry.lunch}
-            </p>
-          </div>
-
-          <div className="pt-5">
-            <h3 className="font-editorial text-[21px] font-medium text-[#143B2B]">
-              {t.journal.afternoon}
-            </h3>
-            <p className="font-hand mt-2.5 text-[13.5px] font-light leading-[2.05] text-[#143B2B]/90">
-              {entry.afternoon}
-            </p>
-          </div>
-
-          <div className="pt-5">
-            <h3 className="font-editorial text-[20px] font-medium text-[#143B2B]">
-              {t.journal.logistics}
-            </h3>
-            <p className="mt-2 text-[13px] font-light leading-[1.7] text-[#5F7067]">
-              {entry.logisticsNote}
-            </p>
-          </div>
-        </div>
       </article>
 
       {/* Editable Memories Notebook (read-only for viewers) */}
@@ -191,7 +281,7 @@ export function CarnetTab() {
 
           {canEdit && (
             <div className="mt-3 flex flex-wrap gap-1.5">
-              {t.journal.prompts.map((prompt) => (
+              {memoryPrompts.map((prompt) => (
                 <button
                   key={prompt}
                   type="button"
@@ -219,56 +309,64 @@ export function CarnetTab() {
         </div>
       )}
 
-      {/* Custom Ivy Collection Styled Day Itinerary Map (zero clutter overlays) */}
-      <div
-        id={`journal-map-card-${day.id}`}
-        className="ivy-card overflow-hidden rounded-3xl"
-      >
-        <div className="px-5 pt-4 pb-3.5">
-          <div className="flex items-center justify-between gap-2">
-            <div>
-              <div className="flex items-center gap-2">
-                <MapIcon className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
-                <h3 className="font-editorial text-[22px] font-medium text-[#143B2B]">
-                  {t.journal.routeTitle}
-                </h3>
+      {/* Custom Ivy Collection Styled Map */}
+      {activeRoute && (
+        <div
+          id={`journal-map-card-${day.id}`}
+          className="ivy-card overflow-hidden rounded-3xl"
+        >
+          <div className="px-5 pt-4 pb-3.5">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <div className="flex items-center gap-2">
+                  <MapIcon className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+                  <h3 className="font-editorial text-[22px] font-medium text-[#143B2B]">
+                    {entry ? t.journal.routeTitle : t.journal.destinationMapTitle}
+                  </h3>
+                </div>
+                <p className="mt-0.5 text-[11px] font-light text-[#5F7067]">
+                  {entry
+                    ? entry.route.mode === 'w'
+                      ? t.journal.walkHint
+                      : t.journal.transitHint
+                    : `${state.meta.destination} · ${t.journal.destinationMapHint}`}
+                </p>
               </div>
-              <p className="mt-0.5 text-[11px] font-light text-[#5F7067]">
-                {entry.route.mode === 'w' ? t.journal.walkHint : t.journal.transitHint}
-              </p>
+
+              <a
+                id={`journal-maps-open-${day.id}`}
+                href={externalMapUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[#ECE7DE] bg-[#FAF8F4] px-2.5 py-1 text-[11px] font-normal text-[#143B2B] transition hover:border-[#B39258]"
+              >
+                <span>{t.openMaps}</span>
+                <ExternalLink className="h-3 w-3 stroke-[1.5] text-[#B39258]" />
+              </a>
             </div>
 
-            <a
-              id={`journal-maps-open-${day.id}`}
-              href={externalMapUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[#ECE7DE] bg-[#FAF8F4] px-2.5 py-1 text-[11px] font-normal text-[#143B2B] transition hover:border-[#B39258]"
-            >
-              <span>{t.openMaps}</span>
-              <ExternalLink className="h-3 w-3 stroke-[1.5] text-[#B39258]" />
-            </a>
+            {entry && (
+              <div className="mt-3 flex flex-wrap items-center gap-1.5 text-[11.5px] font-light text-[#5F7067]">
+                {entry.route.stops.map((stop, idx) => (
+                  <span key={stop.label} className="inline-flex items-center gap-1">
+                    <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#143B2B] text-[9.5px] font-medium text-[#FAF8F4] ring-1 ring-[#B39258]">
+                      {idx + 1}
+                    </span>
+                    <span className="text-[#143B2B]">{stop.label}</span>
+                    {idx < entry.route.stops.length - 1 && (
+                      <span className="text-[#C8BCA6]">→</span>
+                    )}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
-          <div className="mt-3 flex flex-wrap items-center gap-1.5 text-[11.5px] font-light text-[#5F7067]">
-            {entry.route.stops.map((stop, idx) => (
-              <span key={stop.label} className="inline-flex items-center gap-1">
-                <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#143B2B] text-[9.5px] font-medium text-[#FAF8F4] ring-1 ring-[#B39258]">
-                  {idx + 1}
-                </span>
-                <span className="text-[#143B2B]">{stop.label}</span>
-                {idx < entry.route.stops.length - 1 && (
-                  <span className="text-[#C8BCA6]">→</span>
-                )}
-              </span>
-            ))}
+          <div className="border-t border-[#ECE7DE]">
+            <DayRouteMap dayId={day.id} route={activeRoute} />
           </div>
         </div>
-
-        <div className="border-t border-[#ECE7DE]">
-          <DayRouteMap dayId={day.id} route={entry.route} />
-        </div>
-      </div>
+      )}
     </section>
   );
 }

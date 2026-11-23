@@ -1,23 +1,38 @@
 import { isValidCurrencyCode } from '../data/currencies';
-import { INITIAL_EXPENSES } from '../data/expenses';
+import { TRIP_DAYS } from '../data/days';
+import { INITIAL_EXPENSES, PAYMENT_METHODS } from '../data/expenses';
 import { INITIAL_CHECKLIST } from '../data/infos';
 import { INITIAL_STEPS } from '../data/steps';
+import {
+  buildMonogram,
+  buildTripDays,
+  DEFAULT_CUSTOM_PAYMENT_METHODS,
+  DEFAULT_LONDON_META,
+  DEFAULT_LONDON_TRIP_ID,
+  formatTripSubtitle,
+} from '../data/tripFactory';
 import type {
   ExchangeRates,
   Language,
+  PracticalNote,
   TripCurrencies,
+  TripDay,
+  TripMeta,
   TripState,
   TripStep,
+  TripSummary,
 } from '../types/trip';
 
-export const STATE_VERSION = 5;
+export const STATE_VERSION = 6;
 export const STORAGE_KEY = `londres-noel-2026:state:v${STATE_VERSION}`;
 const LEGACY_KEYS = [
+  'londres-noel-2026:state:v5',
   'londres-noel-2026:state:v4',
   'londres-noel-2026:state:v3',
   'londres-noel-2026:state:v2',
   'londres-noel-2026:state:v1',
 ];
+export const TRIPS_INDEX_KEY = 'londres-noel-2026:trips:index:v1';
 export const FAMILY_CODE_KEY = 'londres-noel-2026:family-code';
 export const SELECTED_DAY_KEY = 'londres-noel-2026:selected-day';
 export const LANGUAGE_KEY = 'londres-noel-2026:lang';
@@ -40,6 +55,8 @@ export function createDefaultState(): TripState {
   return {
     version: STATE_VERSION,
     updatedAt: DEFAULT_UPDATED_AT,
+    meta: { ...DEFAULT_LONDON_META },
+    days: TRIP_DAYS.map((day) => ({ ...day })),
     steps: INITIAL_STEPS.map((step) => ({ ...step })),
     memories: {},
     expenses: INITIAL_EXPENSES.map((expense) => ({ ...expense })),
@@ -47,6 +64,21 @@ export function createDefaultState(): TripState {
     rates: { ...DEFAULT_RATES },
     currencies: { ...DEFAULT_CURRENCIES },
     people: [...DEFAULT_PEOPLE],
+    paymentMethods: [...PAYMENT_METHODS],
+    practicalNotes: [],
+  };
+}
+
+export function getDefaultLondonSummary(): TripSummary {
+  return {
+    id: DEFAULT_LONDON_TRIP_ID,
+    title: DEFAULT_LONDON_META.title,
+    subtitle: DEFAULT_LONDON_META.subtitle,
+    destination: DEFAULT_LONDON_META.destination,
+    monogramTop: DEFAULT_LONDON_META.monogramTop,
+    monogramBottom: DEFAULT_LONDON_META.monogramBottom,
+    startDate: DEFAULT_LONDON_META.startDate,
+    endDate: DEFAULT_LONDON_META.endDate,
   };
 }
 
@@ -73,7 +105,51 @@ function timeToMinutes(timeStr: string): number {
   return h * 60 + m;
 }
 
-export function migrateTripState(parsed: TripState): TripState {
+function sanitizePracticalNotes(raw: unknown): PracticalNote[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter(
+      (n): n is PracticalNote =>
+        Boolean(
+          n &&
+            typeof n === 'object' &&
+            typeof (n as Partial<PracticalNote>).id === 'string' &&
+            typeof (n as Partial<PracticalNote>).title === 'string' &&
+            typeof (n as Partial<PracticalNote>).content === 'string'
+        )
+    )
+    .map((n) => ({
+      id: n.id,
+      title: n.title,
+      content: n.content,
+      ...(typeof n.mapsQuery === 'string' && n.mapsQuery.trim()
+        ? { mapsQuery: n.mapsQuery }
+        : {}),
+    }));
+}
+
+function sanitizeDays(raw: unknown): TripDay[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(
+    (d): d is TripDay =>
+      Boolean(
+        d &&
+          typeof d === 'object' &&
+          typeof (d as Partial<TripDay>).id === 'string' &&
+          typeof (d as Partial<TripDay>).dayNumber === 'number'
+      )
+  );
+}
+
+export function migrateTripState(
+  parsed: TripState,
+  familyCodeHint?: string
+): TripState {
+  const rawMeta = (parsed as Partial<TripState>).meta;
+  const isLondon = rawMeta
+    ? Boolean(rawMeta.isLondonDefault)
+    : !familyCodeHint || familyCodeHint === DEFAULT_LONDON_TRIP_ID;
+
   let expenses = parsed.expenses;
   let steps: TripStep[] = parsed.steps;
   let people: string[] =
@@ -81,56 +157,58 @@ export function migrateTripState(parsed: TripState): TripState {
       ? parsed.people
       : [...DEFAULT_PEOPLE];
 
-  // v1 -> v2: ensure pre-paid RAM flight tickets expense exists
-  if (parsed.version < 2) {
-    const flightExp = INITIAL_EXPENSES.find((e) => e.id === 'exp-global-flights');
-    if (flightExp && !expenses.some((e) => e.id === flightExp.id)) {
-      expenses = [{ ...flightExp }, ...expenses];
-    }
-  }
-
-  // v2 -> v3: add breakfast / lunch / dinner meal steps chronologically while preserving user edits
-  if (parsed.version < 3) {
-    const existingIds = new Set(steps.map((s) => s.id));
-    const upgraded: TripStep[] = steps.map((s) =>
-      s.id === 'step-30-2' ? { ...s, kind: 'repas' } : s
-    );
-
-    const newMeals = INITIAL_STEPS.filter(
-      (s) => s.kind === 'repas' && !existingIds.has(s.id)
-    ).map((s) => ({ ...s }));
-
-    const merged = [...upgraded, ...newMeals];
-
-    const byDay = new Map<string, TripStep[]>();
-    for (const step of merged) {
-      const list = byDay.get(step.dayId) ?? [];
-      list.push(step);
-      byDay.set(step.dayId, list);
+  if (isLondon) {
+    // v1 -> v2: ensure pre-paid RAM flight tickets expense exists
+    if (parsed.version < 2) {
+      const flightExp = INITIAL_EXPENSES.find((e) => e.id === 'exp-global-flights');
+      if (flightExp && !expenses.some((e) => e.id === flightExp.id)) {
+        expenses = [{ ...flightExp }, ...expenses];
+      }
     }
 
-    const normalized: TripStep[] = [];
-    for (const dayList of byDay.values()) {
-      dayList.sort((a, b) => {
-        const diff = timeToMinutes(a.timeStart) - timeToMinutes(b.timeStart);
-        return diff !== 0 ? diff : a.order - b.order;
-      });
-      dayList.forEach((step, idx) => {
-        normalized.push({ ...step, order: idx + 1 });
-      });
+    // v2 -> v3: add breakfast / lunch / dinner meal steps chronologically while preserving user edits
+    if (parsed.version < 3) {
+      const existingIds = new Set(steps.map((s) => s.id));
+      const upgraded: TripStep[] = steps.map((s) =>
+        s.id === 'step-30-2' ? { ...s, kind: 'repas' } : s
+      );
+
+      const newMeals = INITIAL_STEPS.filter(
+        (s) => s.kind === 'repas' && !existingIds.has(s.id)
+      ).map((s) => ({ ...s }));
+
+      const merged = [...upgraded, ...newMeals];
+
+      const byDay = new Map<string, TripStep[]>();
+      for (const step of merged) {
+        const list = byDay.get(step.dayId) ?? [];
+        list.push(step);
+        byDay.set(step.dayId, list);
+      }
+
+      const normalized: TripStep[] = [];
+      for (const dayList of byDay.values()) {
+        dayList.sort((a, b) => {
+          const diff = timeToMinutes(a.timeStart) - timeToMinutes(b.timeStart);
+          return diff !== 0 ? diff : a.order - b.order;
+        });
+        dayList.forEach((step, idx) => {
+          normalized.push({ ...step, order: idx + 1 });
+        });
+      }
+
+      steps = normalized;
     }
 
-    steps = normalized;
-  }
-
-  // v3 -> v4: ensure people list exists and default flight expense has person = 'Famille' if unset
-  if (parsed.version < 4) {
-    if (!Array.isArray(parsed.people) || parsed.people.length === 0) {
-      people = [...DEFAULT_PEOPLE];
+    // v3 -> v4: ensure people list exists and default flight expense has person = 'Famille' if unset
+    if (parsed.version < 4) {
+      if (!Array.isArray(parsed.people) || parsed.people.length === 0) {
+        people = [...DEFAULT_PEOPLE];
+      }
+      expenses = expenses.map((e) =>
+        e.id === 'exp-global-flights' && !e.person ? { ...e, person: 'Famille' } : e
+      );
     }
-    expenses = expenses.map((e) =>
-      e.id === 'exp-global-flights' && !e.person ? { ...e, person: 'Famille' } : e
-    );
   }
 
   const rawCurrencies = (parsed as Partial<TripState>).currencies;
@@ -143,14 +221,90 @@ export function migrateTripState(parsed: TripState): TripState {
       : DEFAULT_CURRENCIES.homeCurrency,
   };
 
+  const validDays = sanitizeDays((parsed as Partial<TripState>).days);
+
+  let meta: TripMeta;
+  let days: TripDay[];
+
+  if (isLondon) {
+    meta = {
+      ...DEFAULT_LONDON_META,
+      ...(rawMeta ?? {}),
+      isLondonDefault: true,
+    };
+    days = validDays.length > 0 ? validDays : TRIP_DAYS.map((d) => ({ ...d }));
+  } else {
+    const fallbackDest =
+      rawMeta?.destination?.trim() || familyCodeHint || 'Voyage';
+    const fallbackStart =
+      rawMeta?.startDate ||
+      validDays[0]?.id ||
+      new Date().toISOString().slice(0, 10);
+    const fallbackEnd =
+      rawMeta?.endDate ||
+      validDays[validDays.length - 1]?.id ||
+      fallbackStart;
+    const monogram = buildMonogram(fallbackDest, fallbackStart);
+
+    days =
+      validDays.length > 0
+        ? validDays
+        : buildTripDays(fallbackStart, fallbackEnd, fallbackDest);
+
+    meta = {
+      title: rawMeta?.title?.trim() || fallbackDest,
+      subtitle:
+        rawMeta?.subtitle?.trim() ||
+        formatTripSubtitle(fallbackStart, fallbackEnd, fallbackDest),
+      destination: fallbackDest,
+      monogramTop: rawMeta?.monogramTop?.trim() || monogram.top,
+      monogramBottom: rawMeta?.monogramBottom?.trim() || monogram.bottom,
+      startDate: fallbackStart,
+      endDate: fallbackEnd,
+      lat:
+        typeof rawMeta?.lat === 'number' && Number.isFinite(rawMeta.lat)
+          ? rawMeta.lat
+          : 48.8566,
+      lng:
+        typeof rawMeta?.lng === 'number' && Number.isFinite(rawMeta.lng)
+          ? rawMeta.lng
+          : 2.3522,
+      timezone: rawMeta?.timezone?.trim() || 'UTC',
+      isLondonDefault: false,
+    };
+  }
+
+  const rawPaymentMethods = (parsed as Partial<TripState>).paymentMethods;
+  const paymentMethods = Array.isArray(rawPaymentMethods)
+    ? rawPaymentMethods.filter(
+        (m): m is string => typeof m === 'string' && m.trim().length > 0
+      )
+    : isLondon
+      ? [...PAYMENT_METHODS]
+      : [...DEFAULT_CUSTOM_PAYMENT_METHODS];
+
+  const practicalNotes = sanitizePracticalNotes(
+    (parsed as Partial<TripState>).practicalNotes
+  );
+
   return {
-    ...createDefaultState(),
+    ...(isLondon ? createDefaultState() : {}),
     ...parsed,
-    steps,
-    expenses,
-    people,
-    currencies,
     version: STATE_VERSION,
+    updatedAt:
+      typeof parsed.updatedAt === 'string' && parsed.updatedAt
+        ? parsed.updatedAt
+        : DEFAULT_UPDATED_AT,
+    meta,
+    days,
+    steps,
+    memories: parsed.memories ?? {},
+    expenses,
+    checklist: parsed.checklist ?? [],
+    people,
+    paymentMethods,
+    practicalNotes,
+    currencies,
     rates: {
       madPerGbp:
         typeof parsed.rates.madPerGbp === 'number' && parsed.rates.madPerGbp > 0
@@ -181,7 +335,7 @@ export function loadTripState(): TripState {
     if (!isValidTripState(parsed)) {
       return createDefaultState();
     }
-    return migrateTripState(parsed);
+    return migrateTripState(parsed, DEFAULT_LONDON_TRIP_ID);
   } catch {
     return createDefaultState();
   }
@@ -195,11 +349,104 @@ export function saveTripState(state: TripState): void {
   }
 }
 
+function getTripStorageKey(code: string): string {
+  return code === DEFAULT_LONDON_TRIP_ID
+    ? STORAGE_KEY
+    : `londres-noel-2026:trip:${code}`;
+}
+
+export function loadTripStateForCode(code: string): TripState | null {
+  if (!code || code === DEFAULT_LONDON_TRIP_ID) {
+    return loadTripState();
+  }
+  try {
+    const raw = window.localStorage.getItem(getTripStorageKey(code));
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (!isValidTripState(parsed)) return null;
+    return migrateTripState(parsed, code);
+  } catch {
+    return null;
+  }
+}
+
+export function saveTripStateForCode(code: string, state: TripState): void {
+  try {
+    window.localStorage.setItem(getTripStorageKey(code), JSON.stringify(state));
+  } catch {
+    // Ignore storage quota or private mode errors gracefully
+  }
+}
+
+function isValidTripSummary(value: unknown): value is TripSummary {
+  if (!value || typeof value !== 'object') return false;
+  const c = value as Partial<TripSummary>;
+  return (
+    typeof c.id === 'string' &&
+    c.id.length > 0 &&
+    typeof c.title === 'string' &&
+    typeof c.destination === 'string' &&
+    typeof c.monogramTop === 'string' &&
+    typeof c.monogramBottom === 'string'
+  );
+}
+
+export function loadTripsIndex(): TripSummary[] {
+  try {
+    const raw = window.localStorage.getItem(TRIPS_INDEX_KEY);
+    if (!raw) return [getDefaultLondonSummary()];
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [getDefaultLondonSummary()];
+    const valid = parsed.filter(isValidTripSummary);
+    if (valid.length === 0) return [getDefaultLondonSummary()];
+    return valid;
+  } catch {
+    return [getDefaultLondonSummary()];
+  }
+}
+
+export function saveTripsIndex(list: TripSummary[]): void {
+  try {
+    window.localStorage.setItem(TRIPS_INDEX_KEY, JSON.stringify(list));
+  } catch {
+    // Ignore
+  }
+}
+
+export function upsertTripSummary(summary: TripSummary): TripSummary[] {
+  const existing = loadTripsIndex();
+  const idx = existing.findIndex((item) => item.id === summary.id);
+  let next: TripSummary[];
+  if (idx >= 0) {
+    next = existing.map((item, i) =>
+      i === idx
+        ? {
+            ...item,
+            ...summary,
+            role: summary.role ?? item.role,
+          }
+        : item
+    );
+  } else {
+    next = [...existing, summary];
+  }
+  saveTripsIndex(next);
+  return next;
+}
+
+export function removeTripFromIndex(tripId: string): TripSummary[] {
+  const existing = loadTripsIndex();
+  const filtered = existing.filter((item) => item.id !== tripId);
+  const next = filtered.length > 0 ? filtered : [getDefaultLondonSummary()];
+  saveTripsIndex(next);
+  return next;
+}
+
 export function loadFamilyCode(): string {
   try {
-    return window.localStorage.getItem(FAMILY_CODE_KEY) || 'LDN-NOEL-2026';
+    return window.localStorage.getItem(FAMILY_CODE_KEY) || DEFAULT_LONDON_TRIP_ID;
   } catch {
-    return 'LDN-NOEL-2026';
+    return DEFAULT_LONDON_TRIP_ID;
   }
 }
 

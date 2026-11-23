@@ -105,6 +105,10 @@ export const UI_TEXT = {
     },
     auth: {
       sectionTitle: 'Compte & Accès',
+      accountTitle: 'Mon compte',
+      membersSectionTitle: 'Accès & Membres',
+      connectedStatus: 'Connecté',
+      disconnectedStatus: 'Déconnecté',
       signedOut: 'Invité',
       adminRole: 'Admin',
       editorRole: 'Éditeur',
@@ -127,6 +131,8 @@ export const UI_TEXT = {
       claimTripBtn: 'Activer la protection (Admin)',
       editorAccessNote:
         'Vous avez un accès Éditeur : vous pouvez modifier tout le voyage. Seul un Admin peut gérer les membres et les rôles.',
+      viewerAccessNote:
+        'Vous consultez ce voyage en mode lecture seule.',
       noAccessDesc:
         'Ce voyage est protégé. Connectez-vous avec un email invité ou demandez à un Admin de vous ajouter.',
       sqlPendingTitle: 'Dernière étape sur Supabase',
@@ -156,6 +162,8 @@ export const UI_TEXT = {
         'Compte créé ! Vérifiez votre email pour confirmer votre adresse, puis connectez-vous.',
       accountDescSignedOut:
         'Connectez-vous pour gérer qui administre ce voyage (Admin), peut le modifier (Éditeur) ou seulement le consulter (Lecture seule).',
+      myAccountDescSignedOut:
+        'Connectez-vous pour retrouver vos voyages et synchroniser votre compte sur tous vos appareils.',
     },
     infos: {
       prepEyebrow: 'Pratique · Mayfair W1J 7SU',
@@ -244,6 +252,11 @@ export const UI_TEXT = {
       pwaLabelAndroid: 'Android (Chrome)',
       pwaShortIos: 'Touchez Partager (⬆︎) → « Sur l’écran d’accueil ».',
       pwaShortAndroid: 'Touchez ⋮ → « Installer l’application ».',
+      languageTitle: 'Langue',
+      languageAuto: 'Auto',
+      languageDetectedPrefix: 'Langue détectée sur cet appareil :',
+      languageContentNote:
+        'Les notes, étapes et dépenses saisies restent dans la langue où elles ont été écrites.',
     },
     trips: {
       eyebrow: 'Mes voyages',
@@ -380,6 +393,10 @@ export const UI_TEXT = {
     },
     auth: {
       sectionTitle: 'Account & Access',
+      accountTitle: 'My account',
+      membersSectionTitle: 'Access & Members',
+      connectedStatus: 'Signed in',
+      disconnectedStatus: 'Signed out',
       signedOut: 'Guest',
       adminRole: 'Admin',
       editorRole: 'Editor',
@@ -402,6 +419,8 @@ export const UI_TEXT = {
       claimTripBtn: 'Enable protection (Admin)',
       editorAccessNote:
         'You have Editor access: you can edit all trip content. Only an Admin can manage members and roles.',
+      viewerAccessNote:
+        'You are viewing this trip in read-only mode.',
       noAccessDesc:
         'This trip is protected. Sign in with an invited email or ask an Admin to add you.',
       sqlPendingTitle: 'Final step in Supabase',
@@ -431,6 +450,8 @@ export const UI_TEXT = {
         'Account created! Check your email to confirm your address, then sign in.',
       accountDescSignedOut:
         'Sign in to manage who administers this trip (Admin), can edit it (Editor) or view it in read-only mode (Read-only).',
+      myAccountDescSignedOut:
+        'Sign in to access your trips and sync your account across all your devices.',
     },
     infos: {
       prepEyebrow: 'Practical · Mayfair W1J 7SU',
@@ -519,6 +540,11 @@ export const UI_TEXT = {
       pwaLabelAndroid: 'Android (Chrome)',
       pwaShortIos: 'Tap Share (⬆︎) → "Add to Home Screen".',
       pwaShortAndroid: 'Tap ⋮ → "Install app".',
+      languageTitle: 'Language',
+      languageAuto: 'Auto',
+      languageDetectedPrefix: 'Detected device language:',
+      languageContentNote:
+        'User-entered notes, steps and expenses stay in the language they were written.',
     },
     trips: {
       eyebrow: 'My trips',

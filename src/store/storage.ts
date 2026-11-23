@@ -14,6 +14,7 @@ import {
 import type {
   ExchangeRates,
   Language,
+  LanguagePreference,
   PracticalNote,
   TripCurrencies,
   TripDay,
@@ -474,19 +475,49 @@ export function saveSelectedDay(dayId: string): void {
   }
 }
 
-export function loadLanguage(): Language {
+export function detectDeviceLanguage(): Language {
+  if (typeof navigator === 'undefined') return 'fr';
+  const candidates =
+    Array.isArray(navigator.languages) && navigator.languages.length > 0
+      ? navigator.languages
+      : navigator.language
+        ? [navigator.language]
+        : [];
+
+  for (const raw of candidates) {
+    const normalized = String(raw || '').trim().toLowerCase();
+    if (normalized.startsWith('fr')) return 'fr';
+    if (normalized.startsWith('en')) return 'en';
+  }
+  return 'fr';
+}
+
+export function resolveLanguage(pref: LanguagePreference): Language {
+  return pref === 'auto' ? detectDeviceLanguage() : pref;
+}
+
+export function loadLanguagePreference(): LanguagePreference {
   try {
     const val = window.localStorage.getItem(LANGUAGE_KEY);
-    return val === 'en' ? 'en' : 'fr';
+    if (val === 'fr' || val === 'en') return val;
+    return 'auto';
   } catch {
-    return 'fr';
+    return 'auto';
   }
 }
 
-export function saveLanguage(lang: Language): void {
+export function saveLanguagePreference(pref: LanguagePreference): void {
   try {
-    window.localStorage.setItem(LANGUAGE_KEY, lang);
+    window.localStorage.setItem(LANGUAGE_KEY, pref);
   } catch {
     // Ignore
   }
+}
+
+export function loadLanguage(): Language {
+  return resolveLanguage(loadLanguagePreference());
+}
+
+export function saveLanguage(lang: Language): void {
+  saveLanguagePreference(lang);
 }

@@ -26,6 +26,7 @@ import type {
   ExchangeRates,
   Expense,
   Language,
+  LanguagePreference,
   MemberRole,
   PracticalNote,
   SyncStatus,
@@ -42,15 +43,16 @@ import type {
 import {
   createDefaultState,
   DEFAULT_UPDATED_AT,
+  detectDeviceLanguage,
   isValidTripState,
   loadFamilyCode,
-  loadLanguage,
+  loadLanguagePreference,
   loadSelectedDay,
   loadTripsIndex,
   loadTripStateForCode,
   migrateTripState,
   saveFamilyCode,
-  saveLanguage,
+  saveLanguagePreference,
   saveSelectedDay,
   saveTripStateForCode,
   STATE_VERSION,
@@ -123,11 +125,14 @@ interface TripContextValue {
   updateTripMeta: (patch: Partial<TripMeta>) => void;
 
   lang: Language;
+  langPref: LanguagePreference;
+  detectedDeviceLang: Language;
   activeTab: TabId;
   selectedDayId: string;
   syncStatus: SyncStatus;
   weatherByDay: Record<string, DayWeather>;
   setLang: (lang: Language) => void;
+  setLangPref: (pref: LanguagePreference) => void;
   setActiveTab: (tab: TabId) => void;
   setSelectedDayId: (dayId: string) => void;
   navigateToDay: (dayId: string, tab?: TabId) => void;
@@ -229,7 +234,28 @@ export function TripProvider({ children }: { children: ReactNode }) {
   >([]);
   const [tripsModalOpen, setTripsModalOpen] = useState<boolean>(false);
 
-  const [lang, setLangState] = useState<Language>(() => loadLanguage());
+  const [langPref, setLangPrefState] = useState<LanguagePreference>(() =>
+    loadLanguagePreference()
+  );
+  const [detectedDeviceLang, setDetectedDeviceLang] = useState<Language>(() =>
+    detectDeviceLanguage()
+  );
+  const lang: Language = langPref === 'auto' ? detectedDeviceLang : langPref;
+
+  useEffect(() => {
+    const handleLanguageChange = () => {
+      setDetectedDeviceLang(detectDeviceLanguage());
+    };
+    window.addEventListener('languagechange', handleLanguageChange);
+    return () => {
+      window.removeEventListener('languagechange', handleLanguageChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.lang = lang;
+  }, [lang]);
+
   const [activeTab, setActiveTab] = useState<TabId>('planning');
   const [selectedDayIdState, setSelectedDayIdState] = useState<string>(() => {
     const initialDays =
@@ -505,10 +531,20 @@ export function TripProvider({ children }: { children: ReactNode }) {
     void refreshAccess();
   }, [authLoading, refreshAccess]);
 
-  const setLang = useCallback((nextLang: Language) => {
-    setLangState(nextLang);
-    saveLanguage(nextLang);
+  const setLangPref = useCallback((nextPref: LanguagePreference) => {
+    setLangPrefState(nextPref);
+    saveLanguagePreference(nextPref);
+    if (nextPref === 'auto') {
+      setDetectedDeviceLang(detectDeviceLanguage());
+    }
   }, []);
+
+  const setLang = useCallback(
+    (nextLang: Language) => {
+      setLangPref(nextLang);
+    },
+    [setLangPref]
+  );
 
   const setSelectedDayId = useCallback((dayId: string) => {
     setSelectedDayIdState(dayId);
@@ -1419,11 +1455,14 @@ export function TripProvider({ children }: { children: ReactNode }) {
       createNewTrip,
       updateTripMeta,
       lang,
+      langPref,
+      detectedDeviceLang,
       activeTab,
       selectedDayId,
       syncStatus,
       weatherByDay,
       setLang,
+      setLangPref,
       setActiveTab,
       setSelectedDayId,
       navigateToDay,
@@ -1491,11 +1530,14 @@ export function TripProvider({ children }: { children: ReactNode }) {
       createNewTrip,
       updateTripMeta,
       lang,
+      langPref,
+      detectedDeviceLang,
       activeTab,
       selectedDayId,
       syncStatus,
       weatherByDay,
       setLang,
+      setLangPref,
       setSelectedDayId,
       navigateToDay,
       authUser,

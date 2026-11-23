@@ -13,6 +13,7 @@ import {
   ExternalLink,
   Eye,
   FileText,
+  Globe,
   Home,
   LogIn,
   LogOut,
@@ -28,6 +29,7 @@ import {
   Square,
   Trash2,
   Upload,
+  User,
   Users,
 } from 'lucide-react';
 import {
@@ -46,7 +48,12 @@ import {
 import { UI_TEXT } from '../i18n/translations';
 import { useTrip } from '../store/TripContext';
 import { isSupabaseConfigured } from '../store/sync';
-import type { ChecklistItem, CurrencyCode, MemberRole } from '../types/trip';
+import type {
+  ChecklistItem,
+  CurrencyCode,
+  LanguagePreference,
+  MemberRole,
+} from '../types/trip';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -63,8 +70,10 @@ type SectionKey =
   | 'currencies'
   | 'people'
   | 'payments'
+  | 'members'
   | 'share'
   | 'account'
+  | 'language'
   | 'sync'
   | 'pwa';
 
@@ -97,6 +106,9 @@ const SUPABASE_SQL_EDITOR_URL =
 export function InfosTab() {
   const {
     lang,
+    langPref,
+    detectedDeviceLang,
+    setLangPref,
     state,
     syncStatus,
     authUser,
@@ -151,8 +163,10 @@ export function InfosTab() {
     currencies: false,
     people: false,
     payments: false,
+    members: false,
     share: false,
     account: false,
+    language: false,
     sync: false,
     pwa: false,
   });
@@ -408,6 +422,13 @@ export function InfosTab() {
           : tripRole === 'none'
             ? t.auth.noAccessBadge
             : t.auth.unclaimedBadge;
+
+  const languageBadge =
+    langPref === 'auto'
+      ? `${t.infos.languageAuto} · ${lang.toUpperCase()}`
+      : langPref === 'fr'
+        ? 'Français'
+        : 'English';
 
   const checkedCount = state.checklist.filter((c) => c.checked).length;
 
@@ -1343,162 +1364,19 @@ export function InfosTab() {
           )}
         </article>
 
-        {/* 4. Partage & Sauvegarde */}
-        <article className="ivy-card overflow-hidden rounded-2xl">
-          <button
-            type="button"
-            id="infos-toggle-share"
-            onClick={() => toggleSection('share')}
-            className="flex w-full items-center justify-between gap-2 px-4 py-3.5 text-left"
-          >
-            <div className="flex items-center gap-2.5">
-              <Share2 className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
-              <h3 className="font-editorial text-[21px] font-normal text-[#143B2B]">
-                {t.infos.shareTitle}
-              </h3>
-            </div>
-            {openSections.share ? (
-              <ChevronUp className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
-            ) : (
-              <ChevronDown className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
-            )}
-          </button>
-
-          {openSections.share && (
-            <div className="space-y-2.5 border-t border-[#F2EDE4] px-4 py-3.5">
-              <div className="grid grid-cols-2 gap-2">
-                <a
-                  href={`https://wa.me/?text=${encodeURIComponent(
-                    buildWhatsappSummary()
-                  )}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#143B2B] py-2.5 text-[12px] font-normal text-[#FAF8F4]"
-                >
-                  <Share2 className="h-3.5 w-3.5 stroke-[1.5] text-[#D7BD8A]" />
-                  <span>WhatsApp</span>
-                </a>
-                <button
-                  type="button"
-                  onClick={() =>
-                    void copyText(buildWhatsappSummary(), () => {
-                      setCopiedWhatsapp(true);
-                      window.setTimeout(() => setCopiedWhatsapp(false), 1800);
-                    })
-                  }
-                  className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#ECE7DE] bg-[#FAF8F4] py-2.5 text-[12px] font-normal text-[#143B2B]"
-                >
-                  <Copy className="h-3.5 w-3.5 stroke-[1.5] text-[#B39258]" />
-                  <span>
-                    {copiedWhatsapp ? t.infos.copied : t.infos.copySummary}
-                  </span>
-                </button>
-              </div>
-
-              <div className={canEdit ? 'grid grid-cols-2 gap-2' : ''}>
-                <button
-                  type="button"
-                  onClick={handleExportJson}
-                  className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-[#ECE7DE] bg-white py-2 text-[12px] font-light text-[#143B2B]"
-                >
-                  <Download className="h-3.5 w-3.5 stroke-[1.5] text-[#B39258]" />
-                  <span>{t.infos.exportJson}</span>
-                </button>
-                {canEdit && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#ECE7DE] bg-white py-2 text-[12px] font-light text-[#143B2B]"
-                    >
-                      <Upload className="h-3.5 w-3.5 stroke-[1.5] text-[#B39258]" />
-                      <span>{t.infos.importJson}</span>
-                    </button>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="application/json,.json"
-                      onChange={handleImportFile}
-                      className="hidden"
-                    />
-                  </>
-                )}
-              </div>
-
-              {importFeedback && (
-                <p className="text-[12px] font-light text-[#143B2B]">
-                  {importFeedback}
-                </p>
-              )}
-
-              {canEdit && (tripRole === 'admin' || tripRole === 'unclaimed') && (
-                <div className="flex items-center justify-between pt-1">
-                  <span className="text-[11.5px] font-light text-[#5F7067]">
-                    {t.infos.resetLabel}
-                  </span>
-                  {confirmReset ? (
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setConfirmReset(false)}
-                        className="text-[11.5px] font-light text-[#5F7067]"
-                      >
-                        {t.cancel}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          resetTripState();
-                          setConfirmReset(false);
-                        }}
-                        className="rounded-lg bg-[#7C2D36] px-2.5 py-1 text-[11px] font-normal text-white"
-                      >
-                        {t.infos.confirm}
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setConfirmReset(true)}
-                      className="inline-flex items-center gap-1 text-[11.5px] font-light text-[#7C2D36]"
-                    >
-                      <RotateCcw className="h-3 w-3 stroke-[1.5]" />
-                      <span>{t.infos.resetBtn}</span>
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-        </article>
-      </div>
-
-      {/* ================================================= */}
-      {/* SECTION 3 : RÉGLAGES DE L'APPLICATION             */}
-      {/* ================================================= */}
-      <div id="infos-section-app-settings" className="space-y-3.5 pt-2">
-        <div>
-          <span className="text-[11px] font-normal uppercase tracking-[0.16em] text-[#B39258]">
-            {t.infos.appSettingsEyebrow}
-          </span>
-          <h2 className="font-editorial mt-1 text-[28px] font-normal leading-tight text-[#143B2B]">
-            {t.infos.appSettingsTitle}
-          </h2>
-        </div>
-
-        {/* 1. Compte & Accès (Option A — Supabase Auth + Rôles RLS) */}
+        {/* 4. Accès & Membres (rôles & permissions de ce voyage) */}
         {supabaseReady && (
           <article className="ivy-card overflow-hidden rounded-2xl">
             <button
               type="button"
-              id="infos-toggle-account"
-              onClick={() => toggleSection('account')}
+              id="infos-toggle-members"
+              onClick={() => toggleSection('members')}
               className="flex w-full items-center justify-between gap-2 px-4 py-3.5 text-left"
             >
               <div className="flex items-center gap-2.5">
                 <Shield className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
                 <h3 className="font-editorial text-[21px] font-normal text-[#143B2B]">
-                  {t.auth.sectionTitle}
+                  {t.auth.membersSectionTitle}
                 </h3>
               </div>
               <div className="flex items-center gap-2">
@@ -1515,7 +1393,7 @@ export function InfosTab() {
                 >
                   {accountBadge}
                 </span>
-                {openSections.account ? (
+                {openSections.members ? (
                   <ChevronUp className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
                 ) : (
                   <ChevronDown className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
@@ -1523,7 +1401,7 @@ export function InfosTab() {
               </div>
             </button>
 
-            {openSections.account && (
+            {openSections.members && (
               <div className="space-y-3.5 border-t border-[#F2EDE4] px-4 py-3.5 text-[12.5px] font-light text-[#5F7067]">
                 {!authUser ? (
                   <>
@@ -1534,7 +1412,7 @@ export function InfosTab() {
                     </p>
                     <button
                       type="button"
-                      id="infos-open-login-btn"
+                      id="infos-members-login-btn"
                       onClick={() => setAccountModalOpen(true)}
                       className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#143B2B] py-2.5 text-[12.5px] font-normal text-[#FAF8F4]"
                     >
@@ -1544,27 +1422,6 @@ export function InfosTab() {
                   </>
                 ) : (
                   <>
-                    {/* Connected user header */}
-                    <div className="flex items-center justify-between gap-2 rounded-xl border border-[#ECE7DE] bg-[#FAF8F4] px-3 py-2.5">
-                      <div className="min-w-0">
-                        <p className="truncate text-[12.5px] font-normal text-[#143B2B]">
-                          {authUser.email}
-                        </p>
-                        <p className="text-[11px] font-light text-[#83662F]">
-                          {accountBadge} · {syncStatus.familyCode}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        id="infos-signout-btn"
-                        onClick={() => void signOut()}
-                        className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-[#ECE7DE] bg-white px-2.5 py-1.5 text-[11px] font-normal text-[#143B2B]"
-                      >
-                        <LogOut className="h-3 w-3 stroke-[1.5] text-[#B39258]" />
-                        <span>{t.auth.signOutBtn}</span>
-                      </button>
-                    </div>
-
                     {/* Case 1: Option A SQL migration not executed yet */}
                     {!membersSqlReady && (
                       <div className="space-y-2 rounded-xl border border-[#E2D6BE] bg-[#F8F3E9] p-3 text-[#143B2B]">
@@ -1634,7 +1491,14 @@ export function InfosTab() {
                       </p>
                     )}
 
-                    {/* Case 4a: Editor info note (can edit trip, cannot manage users) */}
+                    {/* Case 4: Read-only viewer */}
+                    {membersSqlReady && tripRole === 'viewer' && (
+                      <p className="rounded-xl border border-[#ECE7DE] bg-[#FAF8F4] px-3 py-2.5 text-[12px] leading-relaxed text-[#5F7067]">
+                        {t.auth.viewerAccessNote}
+                      </p>
+                    )}
+
+                    {/* Case 5a: Editor info note (can edit trip, cannot manage users) */}
                     {membersSqlReady && tripRole === 'editor' && (
                       <div className="space-y-2.5">
                         <p className="rounded-xl border border-[#ECE7DE] bg-[#FAF8F4] px-3 py-2.5 text-[12px] leading-relaxed text-[#5F7067]">
@@ -1664,7 +1528,7 @@ export function InfosTab() {
                       </div>
                     )}
 
-                    {/* Case 4b: Admin management panel */}
+                    {/* Case 5b: Admin management panel */}
                     {membersSqlReady && tripRole === 'admin' && (
                       <div className="space-y-3">
                         <p className="text-[11px] font-normal uppercase tracking-wider text-[#8F7038]">
@@ -1825,7 +1689,305 @@ export function InfosTab() {
           </article>
         )}
 
-        {/* 2. Synchro multi-appareils */}
+        {/* 5. Partage & Sauvegarde */}
+        <article className="ivy-card overflow-hidden rounded-2xl">
+          <button
+            type="button"
+            id="infos-toggle-share"
+            onClick={() => toggleSection('share')}
+            className="flex w-full items-center justify-between gap-2 px-4 py-3.5 text-left"
+          >
+            <div className="flex items-center gap-2.5">
+              <Share2 className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+              <h3 className="font-editorial text-[21px] font-normal text-[#143B2B]">
+                {t.infos.shareTitle}
+              </h3>
+            </div>
+            {openSections.share ? (
+              <ChevronUp className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+            ) : (
+              <ChevronDown className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+            )}
+          </button>
+
+          {openSections.share && (
+            <div className="space-y-2.5 border-t border-[#F2EDE4] px-4 py-3.5">
+              <div className="grid grid-cols-2 gap-2">
+                <a
+                  href={`https://wa.me/?text=${encodeURIComponent(
+                    buildWhatsappSummary()
+                  )}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#143B2B] py-2.5 text-[12px] font-normal text-[#FAF8F4]"
+                >
+                  <Share2 className="h-3.5 w-3.5 stroke-[1.5] text-[#D7BD8A]" />
+                  <span>WhatsApp</span>
+                </a>
+                <button
+                  type="button"
+                  onClick={() =>
+                    void copyText(buildWhatsappSummary(), () => {
+                      setCopiedWhatsapp(true);
+                      window.setTimeout(() => setCopiedWhatsapp(false), 1800);
+                    })
+                  }
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#ECE7DE] bg-[#FAF8F4] py-2.5 text-[12px] font-normal text-[#143B2B]"
+                >
+                  <Copy className="h-3.5 w-3.5 stroke-[1.5] text-[#B39258]" />
+                  <span>
+                    {copiedWhatsapp ? t.infos.copied : t.infos.copySummary}
+                  </span>
+                </button>
+              </div>
+
+              <div className={canEdit ? 'grid grid-cols-2 gap-2' : ''}>
+                <button
+                  type="button"
+                  onClick={handleExportJson}
+                  className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-[#ECE7DE] bg-white py-2 text-[12px] font-light text-[#143B2B]"
+                >
+                  <Download className="h-3.5 w-3.5 stroke-[1.5] text-[#B39258]" />
+                  <span>{t.infos.exportJson}</span>
+                </button>
+                {canEdit && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#ECE7DE] bg-white py-2 text-[12px] font-light text-[#143B2B]"
+                    >
+                      <Upload className="h-3.5 w-3.5 stroke-[1.5] text-[#B39258]" />
+                      <span>{t.infos.importJson}</span>
+                    </button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="application/json,.json"
+                      onChange={handleImportFile}
+                      className="hidden"
+                    />
+                  </>
+                )}
+              </div>
+
+              {importFeedback && (
+                <p className="text-[12px] font-light text-[#143B2B]">
+                  {importFeedback}
+                </p>
+              )}
+
+              {canEdit && (tripRole === 'admin' || tripRole === 'unclaimed') && (
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-[11.5px] font-light text-[#5F7067]">
+                    {t.infos.resetLabel}
+                  </span>
+                  {confirmReset ? (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setConfirmReset(false)}
+                        className="text-[11.5px] font-light text-[#5F7067]"
+                      >
+                        {t.cancel}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          resetTripState();
+                          setConfirmReset(false);
+                        }}
+                        className="rounded-lg bg-[#7C2D36] px-2.5 py-1 text-[11px] font-normal text-white"
+                      >
+                        {t.infos.confirm}
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmReset(true)}
+                      className="inline-flex items-center gap-1 text-[11.5px] font-light text-[#7C2D36]"
+                    >
+                      <RotateCcw className="h-3 w-3 stroke-[1.5]" />
+                      <span>{t.infos.resetBtn}</span>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </article>
+      </div>
+
+      {/* ================================================= */}
+      {/* SECTION 3 : RÉGLAGES DE L'APPLICATION             */}
+      {/* ================================================= */}
+      <div id="infos-section-app-settings" className="space-y-3.5 pt-2">
+        <div>
+          <span className="text-[11px] font-normal uppercase tracking-[0.16em] text-[#B39258]">
+            {t.infos.appSettingsEyebrow}
+          </span>
+          <h2 className="font-editorial mt-1 text-[28px] font-normal leading-tight text-[#143B2B]">
+            {t.infos.appSettingsTitle}
+          </h2>
+        </div>
+
+        {/* 1. Mon compte (statut global de connexion) */}
+        {supabaseReady && (
+          <article className="ivy-card overflow-hidden rounded-2xl">
+            <button
+              type="button"
+              id="infos-toggle-account"
+              onClick={() => toggleSection('account')}
+              className="flex w-full items-center justify-between gap-2 px-4 py-3.5 text-left"
+            >
+              <div className="flex items-center gap-2.5">
+                <User className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+                <h3 className="font-editorial text-[21px] font-normal text-[#143B2B]">
+                  {t.auth.accountTitle}
+                </h3>
+              </div>
+              <div className="flex items-center gap-2">
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[10.5px] font-normal ${
+                    authUser
+                      ? 'bg-[#143B2B] text-[#FAF8F4]'
+                      : 'text-[#5F7067]'
+                  }`}
+                >
+                  {authUser ? t.auth.connectedStatus : t.auth.disconnectedStatus}
+                </span>
+                {openSections.account ? (
+                  <ChevronUp className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+                )}
+              </div>
+            </button>
+
+            {openSections.account && (
+              <div className="space-y-3 border-t border-[#F2EDE4] px-4 py-3.5 text-[12.5px] font-light text-[#5F7067]">
+                {!authUser ? (
+                  <>
+                    <p className="leading-relaxed">
+                      {t.auth.myAccountDescSignedOut}
+                    </p>
+                    <button
+                      type="button"
+                      id="infos-open-login-btn"
+                      onClick={() => setAccountModalOpen(true)}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#143B2B] py-2.5 text-[12.5px] font-normal text-[#FAF8F4]"
+                    >
+                      <LogIn className="h-3.5 w-3.5 text-[#D7BD8A]" />
+                      <span>{t.auth.signInBtn}</span>
+                    </button>
+                  </>
+                ) : (
+                  <div className="flex items-center justify-between gap-2 rounded-xl border border-[#ECE7DE] bg-[#FAF8F4] px-3 py-2.5">
+                    <div className="min-w-0">
+                      <p className="truncate text-[12.5px] font-normal text-[#143B2B]">
+                        {authUser.email}
+                      </p>
+                      <p className="text-[11px] font-light text-[#83662F]">
+                        {t.auth.connectedStatus}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      id="infos-signout-btn"
+                      onClick={() => void signOut()}
+                      className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-[#ECE7DE] bg-white px-2.5 py-1.5 text-[11px] font-normal text-[#143B2B]"
+                    >
+                      <LogOut className="h-3 w-3 stroke-[1.5] text-[#B39258]" />
+                      <span>{t.auth.signOutBtn}</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </article>
+        )}
+
+        {/* 2. Langue de l'application (Auto / Français / English) */}
+        <article className="ivy-card overflow-hidden rounded-2xl">
+          <button
+            type="button"
+            id="infos-toggle-language"
+            onClick={() => toggleSection('language')}
+            className="flex w-full items-center justify-between gap-2 px-4 py-3.5 text-left"
+          >
+            <div className="flex items-center gap-2.5">
+              <Globe className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+              <h3 className="font-editorial text-[21px] font-normal text-[#143B2B]">
+                {t.infos.languageTitle}
+              </h3>
+            </div>
+            <div className="flex items-center gap-2">
+              <span
+                id="infos-language-badge"
+                className="text-[11px] font-light text-[#5F7067]"
+              >
+                {languageBadge}
+              </span>
+              {openSections.language ? (
+                <ChevronUp className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+              ) : (
+                <ChevronDown className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+              )}
+            </div>
+          </button>
+
+          {openSections.language && (
+            <div className="space-y-3 border-t border-[#F2EDE4] px-4 py-3.5 text-[12.5px] font-light text-[#5F7067]">
+              <div
+                role="group"
+                aria-label={t.infos.languageTitle}
+                className="grid grid-cols-3 gap-1 rounded-xl border border-[#ECE7DE] bg-[#FAF8F4] p-1"
+              >
+                {(
+                  [
+                    { value: 'auto', label: t.infos.languageAuto },
+                    { value: 'fr', label: 'Français' },
+                    { value: 'en', label: 'English' },
+                  ] as { value: LanguagePreference; label: string }[]
+                ).map((opt) => {
+                  const active = langPref === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      id={`lang-pref-${opt.value}`}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => setLangPref(opt.value)}
+                      className={`rounded-lg px-2 py-2 text-[12px] transition ${
+                        active
+                          ? 'bg-[#143B2B] font-medium text-[#FAF8F4]'
+                          : 'bg-transparent font-light text-[#5F7067] hover:bg-[#ECE7DE]/60 hover:text-[#143B2B]'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="space-y-1 text-[11.5px] font-light leading-relaxed text-[#5F7067]">
+                {langPref === 'auto' && (
+                  <p id="lang-detected-hint" className="text-[#83662F]">
+                    {t.infos.languageDetectedPrefix}{' '}
+                    <span className="font-normal text-[#143B2B]">
+                      {detectedDeviceLang === 'fr' ? 'Français' : 'English'}
+                    </span>
+                    .
+                  </p>
+                )}
+                <p>{t.infos.languageContentNote}</p>
+              </div>
+            </div>
+          )}
+        </article>
+
+        {/* 3. Synchro multi-appareils */}
         <article className="ivy-card overflow-hidden rounded-2xl">
           <button
             type="button"

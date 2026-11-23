@@ -2,6 +2,8 @@ export type TabId = 'planning' | 'carnet' | 'activites' | 'budget' | 'infos';
 
 export type Language = 'fr' | 'en';
 
+export type LanguagePreference = 'auto' | Language;
+
 export type BookingStatus =
   | 'a_reserver'
   | 'reserve'

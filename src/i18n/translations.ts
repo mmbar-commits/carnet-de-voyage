@@ -342,6 +342,12 @@ export const UI_TEXT = {
         storm: 'Orage',
       },
     },
+    ptr: {
+      pull: 'Tirer pour actualiser',
+      release: 'Relâcher pour synchroniser',
+      refreshing: 'Synchronisation…',
+      updated: 'À jour',
+    },
   },
   en: {
     appTitle: 'London Family Trip',
@@ -675,6 +681,12 @@ export const UI_TEXT = {
         snow: 'Snow',
         storm: 'Storm',
       },
+    },
+    ptr: {
+      pull: 'Pull to refresh',
+      release: 'Release to sync',
+      refreshing: 'Syncing…',
+      updated: 'Up to date',
     },
   },
 } as const;

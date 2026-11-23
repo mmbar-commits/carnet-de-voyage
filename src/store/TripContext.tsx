@@ -257,6 +257,7 @@ interface TripContextValue {
   deleteChecklistItem: (itemId: string) => void;
   setFamilyCode: (code: string) => void;
   triggerManualSync: () => Promise<void>;
+  refreshCurrentView: () => Promise<void>;
   exportTripJson: () => string;
   importTripJson: (raw: string) => { ok: boolean; error?: string };
   resetTripState: () => void;
@@ -1959,6 +1960,43 @@ export function TripProvider({ children }: { children: ReactNode }) {
     }
   }, [authRequired, refreshAccess]);
 
+  const refreshCurrentView = useCallback(async () => {
+    const currentUser = authUserRef.current;
+    if (authRequired && currentUser && !activeTripId) {
+      await loadAuthorizedCatalog(currentUser, { silent: true });
+      return;
+    }
+
+    const code = bundleRef.current.code;
+    const currentState = bundleRef.current.state;
+    const tasks: Promise<unknown>[] = [triggerManualSync()];
+
+    if (
+      code &&
+      days.length > 0 &&
+      typeof navigator !== 'undefined' &&
+      navigator.onLine !== false
+    ) {
+      const meta = {
+        lat: currentState.meta.lat,
+        lng: currentState.meta.lng,
+        timezone: currentState.meta.timezone,
+        isLondonDefault: Boolean(currentState.meta.isLondonDefault),
+      };
+      tasks.push(
+        fetchOpenMeteoWeather(code, days, meta)
+          .then((next) => {
+            if (next && bundleRef.current.code === code) {
+              setWeatherByDay(next);
+            }
+          })
+          .catch(() => undefined)
+      );
+    }
+
+    await Promise.all(tasks);
+  }, [authRequired, activeTripId, days, loadAuthorizedCatalog, triggerManualSync]);
+
   const exportTripJson = useCallback(() => {
     return JSON.stringify(bundleRef.current.state, null, 2);
   }, []);
@@ -2098,6 +2136,7 @@ export function TripProvider({ children }: { children: ReactNode }) {
       deleteChecklistItem,
       setFamilyCode,
       triggerManualSync,
+      refreshCurrentView,
       exportTripJson,
       importTripJson,
       resetTripState,
@@ -2182,6 +2221,7 @@ export function TripProvider({ children }: { children: ReactNode }) {
       deleteChecklistItem,
       setFamilyCode,
       triggerManualSync,
+      refreshCurrentView,
       exportTripJson,
       importTripJson,
       resetTripState,

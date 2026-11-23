@@ -26,6 +26,7 @@
     color: #143B2B;
     font-family: var(--font-sans);
     font-weight: 400;
+    overscroll-behavior-y: contain;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     -webkit-tap-highlight-color: transparent;
@@ -37,6 +38,7 @@
     background-color: #FAF8F4;
     color: #143B2B;
     overflow-x: clip;
+    overscroll-behavior-y: contain;
   }
 }
 

@@ -9,6 +9,7 @@ import { Header } from './components/Header';
 import { InfosTab } from './components/InfosTab';
 import { LandingPage } from './components/LandingPage';
 import { PlanningTab } from './components/PlanningTab';
+import { PullToRefresh } from './components/PullToRefresh';
 import { TripsHub } from './components/TripsHub';
 import { TripsModal } from './components/TripsModal';
 import { UI_TEXT } from './i18n/translations';
@@ -222,10 +223,22 @@ function AppRouter() {
 
   if (authRequired) {
     if (!authUser) return <LandingPage />;
-    if (!activeTripId) return <TripsHub />;
+    if (!activeTripId) {
+      return (
+        <>
+          <PullToRefresh enabled />
+          <TripsHub />
+        </>
+      );
+    }
   }
 
-  return <TripShell />;
+  return (
+    <>
+      <PullToRefresh enabled />
+      <TripShell />
+    </>
+  );
 }
 
 export default function App() {

@@ -542,6 +542,75 @@ export async function deleteTripMember(memberId: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
+/**
+ * Permanently deletes a trip (Admin only — RLS enforces is_trip_admin).
+ * Order matters: delete trip_sync while caller is still an admin, then delete trip_members.
+ */
+export async function deleteTripRemote(familyCode: string): Promise<void> {
+  const client = await getSupabaseClient();
+  const normalized = normalizeFamilyCode(familyCode);
+  if (!client || !normalized) return;
+
+  const { error: syncErr } = await client
+    .from('trip_sync')
+    .delete()
+    .eq('family_code', normalized);
+  if (syncErr) throw new Error(syncErr.message);
+
+  const { error: membersErr } = await client
+    .from('trip_members')
+    .delete()
+    .eq('family_code', normalized);
+  if (membersErr) throw new Error(membersErr.message);
+}
+
+export type LeaveTripStatus = 'left' | 'last_admin' | 'not_member' | 'sql_needed';
+
+/**
+ * Allows an invited member (editor/viewer, or an admin when another admin exists)
+ * to remove themselves from a shared trip.
+ */
+export async function leaveTripRemote(
+  familyCode: string,
+  authUser: AuthUser | null
+): Promise<LeaveTripStatus> {
+  const client = await getSupabaseClient();
+  const normalized = normalizeFamilyCode(familyCode);
+  if (!client || !normalized || !authUser) return 'not_member';
+
+  const { data, error } = await client.rpc('leave_trip', {
+    p_code: normalized,
+  });
+
+  if (!error) {
+    if (data === 'left' || data === 'last_admin' || data === 'not_member') {
+      return data;
+    }
+    return 'left';
+  }
+
+  if (!isMissingSchemaError(error.message)) {
+    throw new Error(error.message);
+  }
+
+  // Fallback when leave_trip RPC hasn't been executed on Supabase yet:
+  // works for admins (who have delete rights), returns 'sql_needed' for editors/viewers.
+  const { data: deletedRows, error: delErr } = await client
+    .from('trip_members')
+    .delete()
+    .eq('family_code', normalized)
+    .or(`user_id.eq.${authUser.id},email.ilike.${authUser.email}`)
+    .select('id');
+
+  if (delErr) {
+    return 'sql_needed';
+  }
+  if (!deletedRows || deletedRows.length === 0) {
+    return 'sql_needed';
+  }
+  return 'left';
+}
+
 // ---------------------------------------------------------------------------
 // Trip State Realtime Sync
 // ---------------------------------------------------------------------------

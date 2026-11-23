@@ -274,6 +274,16 @@ export const UI_TEXT = {
       resetLabel: 'Données par défaut',
       resetBtn: 'Réinitialiser',
       confirm: 'Confirmer',
+      deleteTripLabel: 'Supprimer définitivement',
+      deleteTripBtn: 'Supprimer ce voyage',
+      deleteTripWarning:
+        'Ce voyage et toutes ses données seront supprimés définitivement pour tous les membres. Cette action est irréversible.',
+      deleteTripConfirmBtn: 'Supprimer définitivement',
+      leaveTripLabel: 'Retirer de mes voyages',
+      leaveTripBtn: 'Quitter ce voyage',
+      leaveTripWarning:
+        'Ce voyage sera retiré de votre liste. Vous devrez être réinvité par un administrateur pour y accéder à nouveau.',
+      leaveTripConfirmBtn: 'Quitter',
       pwaTitle: 'Installer l’application',
       pwaTitleAndroid: 'Installer sur Android',
       pwaTitleIos: 'Installer sur iPhone',
@@ -645,6 +655,16 @@ export const UI_TEXT = {
       resetLabel: 'Default trip data',
       resetBtn: 'Reset',
       confirm: 'Confirm',
+      deleteTripLabel: 'Permanent deletion',
+      deleteTripBtn: 'Delete this trip',
+      deleteTripWarning:
+        'This trip and all its data will be permanently deleted for all members. This action cannot be undone.',
+      deleteTripConfirmBtn: 'Delete permanently',
+      leaveTripLabel: 'Remove from my trips',
+      leaveTripBtn: 'Leave this trip',
+      leaveTripWarning:
+        'This trip will be removed from your list. An admin will need to invite you again to regain access.',
+      leaveTripConfirmBtn: 'Leave',
       pwaTitle: 'Install app',
       pwaTitleAndroid: 'Install on Android',
       pwaTitleIos: 'Install on iPhone',

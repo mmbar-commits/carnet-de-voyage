@@ -283,5 +283,55 @@ create policy "Trip sync delete"
   to authenticated
   using (public.is_trip_admin(family_code));
 
--- 7. Recharger le schéma PostgREST
+-- 7. RPC : Permet à un membre (Éditeur, Lecteur, ou Admin s'il reste un autre Admin) de quitter un voyage
+create or replace function public.leave_trip(p_code text)
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_email text;
+  v_role text;
+  v_other_admins integer;
+begin
+  if auth.uid() is null then
+    raise exception 'Authentication required';
+  end if;
+
+  v_email := public.current_user_email();
+
+  select m.role into v_role
+  from public.trip_members m
+  where m.family_code = p_code
+    and (m.user_id = auth.uid() or (v_email <> '' and lower(m.email) = v_email))
+  limit 1;
+
+  if v_role is null then
+    return 'not_member';
+  end if;
+
+  if v_role = 'admin' then
+    select count(*) into v_other_admins
+    from public.trip_members m
+    where m.family_code = p_code
+      and m.role = 'admin'
+      and not (m.user_id = auth.uid() or (v_email <> '' and lower(m.email) = v_email));
+
+    if v_other_admins < 1 then
+      return 'last_admin';
+    end if;
+  end if;
+
+  delete from public.trip_members m
+  where m.family_code = p_code
+    and (m.user_id = auth.uid() or (v_email <> '' and lower(m.email) = v_email));
+
+  return 'left';
+end;
+$$;
+
+grant execute on function public.leave_trip(text) to authenticated;
+
+-- 8. Recharger le schéma PostgREST
 notify pgrst, 'reload schema';

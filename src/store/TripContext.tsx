@@ -56,6 +56,8 @@ import {
   loadUserTripsIndex,
   loadUserTripState,
   migrateTripState,
+  removeTripFromIndex,
+  removeUserCachedTrip,
   saveFamilyCode,
   saveLanguagePreference,
   saveSelectedDay,
@@ -68,10 +70,12 @@ import {
 import {
   claimTripAsAdmin,
   deleteTripMember,
+  deleteTripRemote,
   fetchMyTripsCatalog,
   getCurrentAuthUser,
   inviteOrUpdateMember,
   isSupabaseConfigured,
+  leaveTripRemote,
   normalizeFamilyCode,
   pullRemoteState,
   pushRemoteState,
@@ -262,6 +266,8 @@ interface TripContextValue {
   exportTripJson: () => string;
   importTripJson: (raw: string) => { ok: boolean; error?: string };
   resetTripState: () => void;
+  deleteCurrentTrip: () => Promise<{ ok: boolean; error?: string }>;
+  leaveCurrentTrip: () => Promise<{ ok: boolean; error?: string; sqlNeeded?: boolean }>;
 }
 
 const TripContext = createContext<TripContextValue | null>(null);
@@ -2065,6 +2071,140 @@ export function TripProvider({ children }: { children: ReactNode }) {
     }
   }, [authRequired]);
 
+  const deleteCurrentTrip = useCallback(async (): Promise<{
+    ok: boolean;
+    error?: string;
+  }> => {
+    const code = bundleRef.current.code;
+    const title = bundleRef.current.state.meta.title || code;
+    if (!code) return { ok: false, error: 'Aucun voyage actif.' };
+
+    // Cancel any pending debounced push so we never re-insert the deleted row
+    if (pushTimeoutRef.current) {
+      window.clearTimeout(pushTimeoutRef.current);
+      pushTimeoutRef.current = null;
+    }
+
+    if (authRequired) {
+      const currentUser = authUserRef.current;
+      if (!currentUser) {
+        return { ok: false, error: 'Connexion requise.' };
+      }
+      if (tripRole !== 'admin' && tripRole !== 'unclaimed') {
+        return {
+          ok: false,
+          error:
+            lang === 'fr'
+              ? 'Seul un administrateur peut supprimer ce voyage.'
+              : 'Only an admin can delete this trip.',
+        };
+      }
+      try {
+        await deleteTripRemote(code);
+      } catch (err: unknown) {
+        return {
+          ok: false,
+          error:
+            err instanceof Error
+              ? err.message
+              : lang === 'fr'
+                ? 'Impossible de supprimer ce voyage.'
+                : 'Unable to delete this trip.',
+        };
+      }
+
+      removeUserCachedTrip(currentUser.id, code);
+      setCatalogTrips((prev) => prev.filter((item) => item.id !== code));
+      setRemoteMyTrips((prev) => prev.filter((item) => item.familyCode !== code));
+      setTripMembers([]);
+      setPreviewReadOnly(false);
+      setActiveTripId(null);
+      setTripBundle({ code: '', state: createEmptyPlaceholderState() });
+      setHubNotice(
+        lang === 'fr'
+          ? `Le voyage « ${title} » a été supprimé.`
+          : `Trip “${title}” has been deleted.`
+      );
+      void loadAuthorizedCatalog(currentUser, { silent: true });
+      return { ok: true };
+    }
+
+    // Local-only dev fallback (without Supabase env vars)
+    const remaining = removeTripFromIndex(code);
+    setLocalTrips(remaining);
+    const nextCode = remaining[0]?.id || DEFAULT_LONDON_TRIP_ID;
+    const nextState = loadTripStateForCode(nextCode) ?? createDefaultState();
+    saveFamilyCode(nextCode);
+    setTripBundle({ code: nextCode, state: nextState });
+    return { ok: true };
+  }, [authRequired, lang, loadAuthorizedCatalog, tripRole]);
+
+  const leaveCurrentTrip = useCallback(async (): Promise<{
+    ok: boolean;
+    error?: string;
+    sqlNeeded?: boolean;
+  }> => {
+    const code = bundleRef.current.code;
+    const title = bundleRef.current.state.meta.title || code;
+    const currentUser = authUserRef.current;
+    if (!authRequired || !currentUser || !code) {
+      return { ok: false, error: 'Connexion requise.' };
+    }
+
+    if (pushTimeoutRef.current) {
+      window.clearTimeout(pushTimeoutRef.current);
+      pushTimeoutRef.current = null;
+    }
+
+    try {
+      const status = await leaveTripRemote(code, currentUser);
+      if (status === 'last_admin') {
+        return {
+          ok: false,
+          error:
+            lang === 'fr'
+              ? 'Vous êtes le seul administrateur. Nommez un autre administrateur ou supprimez le voyage.'
+              : 'You are the only admin. Promote another admin first or delete the trip.',
+        };
+      }
+      if (status === 'sql_needed') {
+        return {
+          ok: false,
+          sqlNeeded: true,
+          error:
+            lang === 'fr'
+              ? 'Fonction SQL leave_trip manquante sur Supabase. Demandez à l’Admin d’exécuter la mise à jour SQL (ou de vous retirer des membres).'
+              : 'Supabase leave_trip SQL function is not installed yet. Ask the Admin to run the SQL update (or remove you from members).',
+        };
+      }
+    } catch (err: unknown) {
+      return {
+        ok: false,
+        error:
+          err instanceof Error
+            ? err.message
+            : lang === 'fr'
+              ? 'Impossible de quitter ce voyage.'
+              : 'Unable to leave this trip.',
+      };
+    }
+
+    removeUserCachedTrip(currentUser.id, code);
+    setCatalogTrips((prev) => prev.filter((item) => item.id !== code));
+    setRemoteMyTrips((prev) => prev.filter((item) => item.familyCode !== code));
+    setTripMembers([]);
+    setPreviewReadOnly(false);
+    setActiveTripId(null);
+    setTripBundle({ code: '', state: createEmptyPlaceholderState() });
+    setHubNotice(
+      lang === 'fr'
+        ? `Vous avez quitté « ${title} ».`
+        : `You left “${title}”.`
+    );
+    void loadAuthorizedCatalog(currentUser, { silent: true });
+    return { ok: true };
+  }, [authRequired, lang, loadAuthorizedCatalog]);
+
   const value = useMemo<TripContextValue>(
     () => ({
       state,
@@ -2154,6 +2294,8 @@ export function TripProvider({ children }: { children: ReactNode }) {
       exportTripJson,
       importTripJson,
       resetTripState,
+      deleteCurrentTrip,
+      leaveCurrentTrip,
     }),
     [
       state,
@@ -2239,6 +2381,8 @@ export function TripProvider({ children }: { children: ReactNode }) {
       exportTripJson,
       importTripJson,
       resetTripState,
+      deleteCurrentTrip,
+      leaveCurrentTrip,
     ]
   );
 

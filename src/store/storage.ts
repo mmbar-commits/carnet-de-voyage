@@ -522,6 +522,18 @@ export function saveUserTripState(userId: string, code: string, state: TripState
   }
 }
 
+export function removeUserCachedTrip(userId: string, code: string): void {
+  if (!userId || !code) return;
+  try {
+    window.localStorage.removeItem(getUserTripStateKey(userId, code));
+    const current = loadUserTripsIndex(userId);
+    const filtered = current.filter((item) => item.id !== code);
+    saveUserTripsIndex(userId, filtered);
+  } catch {
+    // Ignore storage access errors gracefully
+  }
+}
+
 export function clearUserCachedTrips(userId?: string | null): void {
   try {
     const userPrefix = userId ? getUserPrefix(userId) : null;

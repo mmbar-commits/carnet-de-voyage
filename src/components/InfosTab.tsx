@@ -134,6 +134,8 @@ export function InfosTab() {
     exportTripJson,
     importTripJson,
     resetTripState,
+    deleteCurrentTrip,
+    leaveCurrentTrip,
   } = useTrip();
 
   const t = UI_TEXT[lang];
@@ -183,6 +185,11 @@ export function InfosTab() {
   const [accountFeedback, setAccountFeedback] = useState<string | null>(null);
   const [importFeedback, setImportFeedback] = useState<string | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
+  const [confirmDeleteTrip, setConfirmDeleteTrip] = useState(false);
+  const [deleteTripBusy, setDeleteTripBusy] = useState(false);
+  const [deleteTripError, setDeleteTripError] = useState<string | null>(null);
+  const [confirmLeaveTrip, setConfirmLeaveTrip] = useState(false);
+  const [leaveTripBusy, setLeaveTripBusy] = useState(false);
   const [installPrompt, setInstallPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
   const [devicePlatform] = useState<DevicePlatform>(() => detectDevicePlatform());
@@ -358,7 +365,43 @@ export function InfosTab() {
     }
   };
 
+  const handleDeleteTrip = async () => {
+    setDeleteTripError(null);
+    setDeleteTripBusy(true);
+    try {
+      const res = await deleteCurrentTrip();
+      if (!res.ok) {
+        setDeleteTripError(res.error || 'Error');
+      } else {
+        setConfirmDeleteTrip(false);
+      }
+    } finally {
+      setDeleteTripBusy(false);
+    }
+  };
+
+  const handleLeaveTrip = async () => {
+    setAccountFeedback(null);
+    setLeaveTripBusy(true);
+    try {
+      const res = await leaveCurrentTrip();
+      if (!res.ok) {
+        setAccountFeedback(res.error || 'Error');
+      } else {
+        setConfirmLeaveTrip(false);
+      }
+    } finally {
+      setLeaveTripBusy(false);
+    }
+  };
+
   const adminCount = tripMembers.filter((m) => m.role === 'admin').length;
+  const canLeaveTrip =
+    Boolean(authUser) &&
+    membersSqlReady &&
+    (tripRole === 'editor' ||
+      tripRole === 'viewer' ||
+      (tripRole === 'admin' && adminCount > 1));
 
   const accountBadge = !authUser
     ? tripRole === 'none'
@@ -1665,6 +1708,58 @@ export function InfosTab() {
                   </div>
                 )}
 
+                {canLeaveTrip && (
+                  <div className="border-t border-[#F2EDE4] pt-3">
+                    {confirmLeaveTrip ? (
+                      <div
+                        id="leave-trip-confirm-box"
+                        className="space-y-2.5 rounded-xl border border-[#E8CFD2] bg-[#FCF5F5] p-3"
+                      >
+                        <p className="text-[12px] font-light leading-relaxed text-[#7C2D36]">
+                          {t.infos.leaveTripWarning}
+                        </p>
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            disabled={leaveTripBusy}
+                            onClick={() => setConfirmLeaveTrip(false)}
+                            className="rounded-lg border border-[#ECE7DE] bg-white px-3 py-1.5 text-[11.5px] font-light text-[#5F7067]"
+                          >
+                            {t.cancel}
+                          </button>
+                          <button
+                            type="button"
+                            id="confirm-leave-trip-btn"
+                            disabled={leaveTripBusy}
+                            onClick={() => void handleLeaveTrip()}
+                            className="rounded-lg bg-[#7C2D36] px-3 py-1.5 text-[11.5px] font-normal text-white disabled:opacity-50"
+                          >
+                            {leaveTripBusy ? '...' : t.infos.leaveTripConfirmBtn}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[11.5px] font-light text-[#5F7067]">
+                          {t.infos.leaveTripLabel}
+                        </span>
+                        <button
+                          type="button"
+                          id="leave-trip-btn"
+                          onClick={() => {
+                            setAccountFeedback(null);
+                            setConfirmLeaveTrip(true);
+                          }}
+                          className="inline-flex items-center gap-1.5 text-[11.5px] font-normal text-[#7C2D36]"
+                        >
+                          <LogOut className="h-3.5 w-3.5 stroke-[1.5]" />
+                          <span>{t.infos.leaveTripBtn}</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {accountFeedback && (
                   <p className="rounded-xl bg-[#FCF5F5] px-3 py-2 text-[11.5px] text-[#7C2D36]">
                     {accountFeedback}
@@ -1770,6 +1865,68 @@ export function InfosTab() {
                       <RotateCcw className="h-3 w-3 stroke-[1.5]" />
                       <span>{t.infos.resetBtn}</span>
                     </button>
+                  )}
+                </div>
+
+                <div className="border-t border-[#F2EDE4] pt-2.5">
+                  {confirmDeleteTrip ? (
+                    <div
+                      id="delete-trip-confirm-box"
+                      className="space-y-2.5 rounded-xl border border-[#E8CFD2] bg-[#FCF5F5] p-3"
+                    >
+                      <p className="text-[12px] font-light leading-relaxed text-[#7C2D36]">
+                        {t.infos.deleteTripWarning}
+                      </p>
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          disabled={deleteTripBusy}
+                          onClick={() => {
+                            setConfirmDeleteTrip(false);
+                            setDeleteTripError(null);
+                          }}
+                          className="rounded-lg border border-[#ECE7DE] bg-white px-3 py-1.5 text-[11.5px] font-light text-[#5F7067]"
+                        >
+                          {t.cancel}
+                        </button>
+                        <button
+                          type="button"
+                          id="confirm-delete-trip-btn"
+                          disabled={deleteTripBusy}
+                          onClick={() => void handleDeleteTrip()}
+                          className="rounded-lg bg-[#7C2D36] px-3 py-1.5 text-[11.5px] font-normal text-white disabled:opacity-50"
+                        >
+                          {deleteTripBusy ? '...' : t.infos.deleteTripConfirmBtn}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[11.5px] font-light text-[#5F7067]">
+                        {t.infos.deleteTripLabel}
+                      </span>
+                      <button
+                        type="button"
+                        id="delete-trip-btn"
+                        onClick={() => {
+                          setDeleteTripError(null);
+                          setConfirmDeleteTrip(true);
+                        }}
+                        className="inline-flex items-center gap-1 text-[11.5px] font-normal text-[#7C2D36]"
+                      >
+                        <Trash2 className="h-3.5 w-3.5 stroke-[1.5]" />
+                        <span>{t.infos.deleteTripBtn}</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {deleteTripError && (
+                    <p
+                      id="delete-trip-error"
+                      className="mt-2 rounded-xl bg-[#FCF5F5] px-3 py-2 text-[11.5px] text-[#7C2D36]"
+                    >
+                      {deleteTripError}
+                    </p>
                   )}
                 </div>
               </div>

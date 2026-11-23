@@ -11,23 +11,10 @@ import {
 } from 'lucide-react';
 import { DAY_MAP, TRIP_DAYS } from '../data/days';
 import { PAYMENT_METHODS } from '../data/expenses';
+import { getCategoryLabel, getDayLabel, UI_TEXT } from '../i18n/translations';
 import { useTrip } from '../store/TripContext';
 import type { DisplayCurrency, Expense, ExpenseCategory } from '../types/trip';
 import { ExpenseModal } from './ExpenseModal';
-
-const CATEGORY_LABELS: Record<ExpenseCategory, string> = {
-  activites: 'Activités',
-  repas: 'Repas & Courses',
-  transports: 'Transports',
-  shopping: 'Shopping & Extras',
-};
-
-const CATEGORY_SHORT_LABELS: Record<ExpenseCategory, string> = {
-  activites: 'Activités',
-  repas: 'Repas',
-  transports: 'Transports',
-  shopping: 'Shopping',
-};
 
 const ALL_CATEGORIES: ExpenseCategory[] = [
   'activites',
@@ -36,19 +23,20 @@ const ALL_CATEGORIES: ExpenseCategory[] = [
   'shopping',
 ];
 
-function formatGbp(amount: number): string {
-  return `£${amount.toLocaleString('fr-FR', {
+function formatGbp(amount: number, locale: string): string {
+  return `£${amount.toLocaleString(locale, {
     minimumFractionDigits: amount % 1 === 0 ? 0 : 2,
     maximumFractionDigits: 2,
   })}`;
 }
 
-function formatMad(amountGbp: number, rate: number): string {
-  return `${Math.round(amountGbp * rate).toLocaleString('fr-FR')} MAD`;
+function formatMad(amountGbp: number, rate: number, locale: string): string {
+  return `${Math.round(amountGbp * rate).toLocaleString(locale)} MAD`;
 }
 
 export function BudgetTab() {
   const {
+    lang,
     state,
     toggleExpensePaid,
     addExpense,
@@ -56,6 +44,9 @@ export function BudgetTab() {
     deleteExpense,
     updateRates,
   } = useTrip();
+
+  const t = UI_TEXT[lang];
+  const locale = lang === 'fr' ? 'fr-FR' : 'en-GB';
 
   const [currency, setCurrency] = useState<DisplayCurrency>('GBP');
   const [categoryFilter, setCategoryFilter] = useState<ExpenseCategory | 'all'>(
@@ -71,6 +62,9 @@ export function BudgetTab() {
   const [expandedPayments, setExpandedPayments] = useState<
     Record<string, boolean>
   >({});
+  const [expandedPeople, setExpandedPeople] = useState<Record<string, boolean>>(
+    {}
+  );
 
   const [modalDayId, setModalDayId] = useState<string | null>(null);
   const [editingExpense, setEditingExpense] = useState<Expense | undefined>(
@@ -80,10 +74,10 @@ export function BudgetTab() {
   const { madPerGbp, eurPerGbp } = state.rates;
 
   const formatPrimary = (gbp: number) =>
-    currency === 'GBP' ? formatGbp(gbp) : formatMad(gbp, madPerGbp);
+    currency === 'GBP' ? formatGbp(gbp, locale) : formatMad(gbp, madPerGbp, locale);
 
   const formatSecondary = (gbp: number) =>
-    currency === 'GBP' ? formatMad(gbp, madPerGbp) : formatGbp(gbp);
+    currency === 'GBP' ? formatMad(gbp, madPerGbp, locale) : formatGbp(gbp, locale);
 
   const filteredExpenses = useMemo(() => {
     if (categoryFilter === 'all') return state.expenses;
@@ -122,37 +116,40 @@ export function BudgetTab() {
     }[] = [
       {
         id: 'global',
-        badge: 'Global',
-        title: 'Dépenses globales',
+        badge: t.budget.globalBadge,
+        title: t.budget.globalTitle,
         items: filteredExpenses.filter((e) => e.dayId === 'global'),
         subtotalGbp: 0,
       },
-      ...TRIP_DAYS.map((day) => ({
-        id: day.id,
-        badge: `J${day.dayNumber}`,
-        title: `${day.weekdayFull} ${day.dateShort}`,
-        items: filteredExpenses.filter((e) => e.dayId === day.id),
-        subtotalGbp: 0,
-      })),
+      ...TRIP_DAYS.map((day) => {
+        const dl = getDayLabel(day, lang);
+        return {
+          id: day.id,
+          badge: `${lang === 'fr' ? 'J' : 'D'}${day.dayNumber}`,
+          title: `${dl.weekdayFull} ${dl.dateShort}`,
+          items: filteredExpenses.filter((e) => e.dayId === day.id),
+          subtotalGbp: 0,
+        };
+      }),
     ];
 
     return list.map((g) => ({
       ...g,
       subtotalGbp: g.items.reduce((sum, i) => sum + i.amountGbp, 0),
     }));
-  }, [filteredExpenses]);
+  }, [filteredExpenses, lang, t.budget.globalBadge, t.budget.globalTitle]);
 
   const categoryGroups = useMemo(() => {
     return ALL_CATEGORIES.map((cat) => {
       const items = state.expenses.filter((e) => e.category === cat);
       return {
         id: cat,
-        title: CATEGORY_LABELS[cat],
+        title: getCategoryLabel(cat, lang),
         items,
         subtotalGbp: items.reduce((sum, i) => sum + i.amountGbp, 0),
       };
     });
-  }, [state.expenses]);
+  }, [state.expenses, lang]);
 
   const paymentGroups = useMemo(() => {
     const known = new Set<string>(PAYMENT_METHODS);
@@ -177,13 +174,44 @@ export function BudgetTab() {
     const unspecifiedItems = state.expenses.filter((e) => !e.paymentMethod);
     groups.push({
       id: 'non_precise',
-      title: 'Non précisé',
+      title: t.budget.unspecified,
       items: unspecifiedItems,
       subtotalGbp: unspecifiedItems.reduce((sum, i) => sum + i.amountGbp, 0),
     });
 
     return groups;
-  }, [state.expenses]);
+  }, [state.expenses, t.budget.unspecified]);
+
+  const peopleGroups = useMemo(() => {
+    const known = new Set<string>(state.people);
+    const extras = new Set<string>();
+    for (const exp of state.expenses) {
+      if (exp.person && !known.has(exp.person)) {
+        extras.add(exp.person);
+      }
+    }
+
+    const orderedPeople = [...state.people, ...Array.from(extras)];
+    const groups = orderedPeople.map((personName) => {
+      const items = state.expenses.filter((e) => e.person === personName);
+      return {
+        id: personName,
+        title: personName,
+        items,
+        subtotalGbp: items.reduce((sum, i) => sum + i.amountGbp, 0),
+      };
+    });
+
+    const unspecifiedItems = state.expenses.filter((e) => !e.person);
+    groups.push({
+      id: 'non_precise_person',
+      title: t.budget.unspecified,
+      items: unspecifiedItems,
+      subtotalGbp: unspecifiedItems.reduce((sum, i) => sum + i.amountGbp, 0),
+    });
+
+    return groups;
+  }, [state.expenses, state.people, t.budget.unspecified]);
 
   const allDaysExpanded = dayGroups.every((g) => Boolean(expandedDays[g.id]));
   const setAllDaysExpanded = (expanded: boolean) => {
@@ -199,7 +227,11 @@ export function BudgetTab() {
     options?: { showDay?: boolean; showCategory?: boolean; keyPrefix?: string }
   ) => {
     const dayObj = item.dayId !== 'global' ? DAY_MAP[item.dayId] : undefined;
-    const dayLabel = dayObj ? `J${dayObj.dayNumber} · ${dayObj.dateShort}` : 'Global';
+    const dl = dayObj ? getDayLabel(dayObj, lang) : undefined;
+    const dayLabel =
+      dayObj && dl
+        ? `${lang === 'fr' ? 'J' : 'D'}${dayObj.dayNumber} · ${dl.dateShort}`
+        : t.budget.globalBadge;
 
     return (
       <li
@@ -212,7 +244,7 @@ export function BudgetTab() {
             type="button"
             id={options?.keyPrefix ? undefined : `toggle-paid-${item.id}`}
             onClick={() => toggleExpensePaid(item.id)}
-            aria-label={item.paid ? 'Marquer comme prévu' : 'Marquer comme payé'}
+            aria-label="Toggle paid"
             className="mt-0.5 shrink-0 text-[#143B2B]"
           >
             {item.paid ? (
@@ -231,13 +263,16 @@ export function BudgetTab() {
               {item.title}
             </p>
             <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] font-light text-[#5F7067]">
-              <span>{item.paid ? 'Payé' : 'Prévu'}</span>
+              <span>{item.paid ? t.budget.paid : t.budget.plannedStatus}</span>
               {options?.showDay && <span>· {dayLabel}</span>}
               {options?.showCategory && (
-                <span>· {CATEGORY_SHORT_LABELS[item.category]}</span>
+                <span>· {getCategoryLabel(item.category, lang, true)}</span>
               )}
               {item.paymentMethod && (
                 <span className="text-[#143B2B]">· {item.paymentMethod}</span>
+              )}
+              {item.person && (
+                <span className="text-[#83662F]">· {item.person}</span>
               )}
               {item.isTowerHamletsBenefit && item.savedGbp && (
                 <span className="text-[#83662F]">
@@ -263,7 +298,7 @@ export function BudgetTab() {
               setEditingExpense(item);
               setModalDayId(item.dayId);
             }}
-            aria-label="Modifier la dépense"
+            aria-label="Edit expense"
             className="p-1 text-[#5F7067]/70 hover:text-[#143B2B]"
           >
             <Pencil className="h-3.5 w-3.5 stroke-[1.5]" />
@@ -279,17 +314,17 @@ export function BudgetTab() {
       <div className="flex items-end justify-between gap-2 pt-2">
         <div>
           <span className="text-[11px] font-normal uppercase tracking-[0.16em] text-[#B39258]">
-            4 Voyageurs · 11 Jours
+            {t.budget.eyebrow}
           </span>
           <h2 className="font-editorial mt-1 text-[30px] font-normal leading-tight text-[#143B2B]">
-            Budget
+            {t.budget.title}
           </h2>
         </div>
 
         <div className="flex items-center gap-2">
           <div
             role="group"
-            aria-label="Devise d'affichage"
+            aria-label="Currency"
             className="inline-flex rounded-full border border-[#ECE7DE] bg-white p-0.5"
           >
             {(['GBP', 'MAD'] as const).map((code) => (
@@ -314,7 +349,7 @@ export function BudgetTab() {
             type="button"
             id="toggle-rates-btn"
             onClick={() => setShowRatesEditor((v) => !v)}
-            aria-label="Régler le taux GBP/MAD"
+            aria-label="Exchange rate"
             className="flex h-8 w-8 items-center justify-center rounded-full border border-[#ECE7DE] bg-white text-[#143B2B]"
           >
             <SlidersHorizontal className="h-3.5 w-3.5 stroke-[1.5] text-[#B39258]" />
@@ -322,14 +357,13 @@ export function BudgetTab() {
         </div>
       </div>
 
-      {/* Single GBP -> MAD Rate Editor (no EUR) */}
       {showRatesEditor && (
         <div className="ivy-card flex items-center justify-between gap-3 rounded-2xl px-4 py-3.5">
           <label
             htmlFor="rate-mad-input"
             className="text-[12.5px] font-light text-[#5F7067]"
           >
-            Taux de change (1 £ GBP en MAD)
+            {t.budget.rateLabel}
           </label>
           <input
             id="rate-mad-input"
@@ -348,12 +382,12 @@ export function BudgetTab() {
         </div>
       )}
 
-      {/* Luminous Summary Card (GBP & MAD only — zero EUR) */}
+      {/* Summary Card (GBP & MAD only) */}
       <div className="ivy-card rounded-3xl px-5 py-5">
         <div className="flex items-baseline justify-between gap-2">
           <div>
             <p className="text-[11px] font-light uppercase tracking-[0.14em] text-[#5F7067]">
-              Total estimé
+              {t.budget.estimatedTotal}
             </p>
             <p
               id="budget-total-gbp"
@@ -372,14 +406,14 @@ export function BudgetTab() {
         <div className="mt-5">
           <div className="flex items-center justify-between text-[11.5px] font-light text-[#5F7067]">
             <span>
-              Payé :{' '}
+              {t.budget.paid} :{' '}
               <span className="font-normal text-[#143B2B]">
                 {formatPrimary(totals.paid)}
               </span>{' '}
               ({totals.paidPct} %)
             </span>
             <span>
-              Reste :{' '}
+              {t.budget.remaining} :{' '}
               <span className="font-normal text-[#143B2B]">
                 {formatPrimary(totals.remaining)}
               </span>
@@ -396,12 +430,12 @@ export function BudgetTab() {
         <div className="mt-4 flex items-center gap-2 border-t border-[#F2EDE4] pt-3.5 text-[12px] font-light text-[#83662F]">
           <Award className="h-3.5 w-3.5 shrink-0 stroke-[1.5] text-[#B39258]" />
           <span>
-            ~{formatPrimary(Math.round(totals.savedTh))} économisés · Résident Tower Hamlets
+            ~{formatPrimary(Math.round(totals.savedTh))} {t.budget.thSaved}
           </span>
         </div>
       </div>
 
-      {/* Category Filter Pills for Day List */}
+      {/* Category Filter Pills */}
       <div className="no-scrollbar flex gap-2 overflow-x-auto pb-0.5">
         <button
           type="button"
@@ -412,7 +446,7 @@ export function BudgetTab() {
               : 'border-[#ECE7DE] bg-white font-light text-[#143B2B]'
           }`}
         >
-          Toutes
+          {t.budget.allCategories}
         </button>
         {ALL_CATEGORIES.map((cat) => (
           <button
@@ -425,7 +459,7 @@ export function BudgetTab() {
                 : 'border-[#ECE7DE] bg-white font-light text-[#143B2B]'
             }`}
           >
-            {CATEGORY_SHORT_LABELS[cat]}
+            {getCategoryLabel(cat, lang, true)}
           </button>
         ))}
       </div>
@@ -434,14 +468,14 @@ export function BudgetTab() {
       <div className="space-y-2.5">
         <div className="flex items-center justify-between pt-1">
           <h3 className="font-editorial text-[22px] font-normal text-[#143B2B]">
-            Par journée
+            {t.budget.byDay}
           </h3>
           <button
             type="button"
             onClick={() => setAllDaysExpanded(!allDaysExpanded)}
             className="text-[11.5px] font-light text-[#8F7038]"
           >
-            {allDaysExpanded ? 'Tout replier' : 'Tout déplier'}
+            {allDaysExpanded ? t.budget.collapseAll : t.budget.expandAll}
           </button>
         </div>
 
@@ -493,7 +527,7 @@ export function BudgetTab() {
                 <div className="border-t border-[#F2EDE4] bg-[#FDFCF9] px-4 py-3">
                   {group.items.length === 0 ? (
                     <p className="py-1 text-center text-[12px] font-light text-[#5F7067]">
-                      Aucune dépense
+                      {t.budget.noExpense}
                     </p>
                   ) : (
                     <ul className="divide-y divide-[#F2EDE4]">
@@ -511,7 +545,7 @@ export function BudgetTab() {
                     className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-[#D8CEBC] bg-white py-2 text-[12px] font-light text-[#143B2B]"
                   >
                     <Plus className="h-3.5 w-3.5 stroke-[1.5] text-[#B39258]" />
-                    <span>Ajouter une dépense</span>
+                    <span>{t.budget.addExpense}</span>
                   </button>
                 </div>
               )}
@@ -523,7 +557,7 @@ export function BudgetTab() {
       {/* 2. Par catégorie */}
       <div id="budget-section-categories" className="space-y-2.5 pt-2">
         <h3 className="font-editorial text-[22px] font-normal text-[#143B2B]">
-          Par catégorie
+          {t.budget.byCategory}
         </h3>
 
         {categoryGroups.map((group) => {
@@ -577,7 +611,7 @@ export function BudgetTab() {
                 <div className="border-t border-[#F2EDE4] bg-[#FDFCF9] px-4 py-3">
                   {group.items.length === 0 ? (
                     <p className="py-1 text-center text-[12px] font-light text-[#5F7067]">
-                      Aucune dépense
+                      {t.budget.noExpense}
                     </p>
                   ) : (
                     <ul className="divide-y divide-[#F2EDE4]">
@@ -599,7 +633,7 @@ export function BudgetTab() {
       {/* 3. Par moyen de paiement */}
       <div id="budget-section-payments" className="space-y-2.5 pt-2">
         <h3 className="font-editorial text-[22px] font-normal text-[#143B2B]">
-          Par moyen de paiement
+          {t.budget.byPayment}
         </h3>
 
         {paymentGroups.map((group) => {
@@ -653,7 +687,7 @@ export function BudgetTab() {
                 <div className="border-t border-[#F2EDE4] bg-[#FDFCF9] px-4 py-3">
                   {group.items.length === 0 ? (
                     <p className="py-1 text-center text-[12px] font-light text-[#5F7067]">
-                      Aucune dépense
+                      {t.budget.noExpense}
                     </p>
                   ) : (
                     <ul className="divide-y divide-[#F2EDE4]">
@@ -662,6 +696,83 @@ export function BudgetTab() {
                           showDay: true,
                           showCategory: true,
                           keyPrefix: `pay-${group.id}`,
+                        })
+                      )}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* 4. Par personne */}
+      <div id="budget-section-people" className="space-y-2.5 pt-2">
+        <h3 className="font-editorial text-[22px] font-normal text-[#143B2B]">
+          {t.budget.byPerson}
+        </h3>
+
+        {peopleGroups.map((group) => {
+          const isOpen = Boolean(expandedPeople[group.id]);
+
+          return (
+            <div
+              key={group.id}
+              id={`budget-person-group-${group.id}`}
+              className="ivy-card overflow-hidden rounded-2xl"
+            >
+              <button
+                type="button"
+                id={`budget-person-toggle-${group.id}`}
+                onClick={() =>
+                  setExpandedPeople((prev) => ({
+                    ...prev,
+                    [group.id]: !prev[group.id],
+                  }))
+                }
+                aria-expanded={isOpen}
+                className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left"
+              >
+                <div className="min-w-0">
+                  <span className="font-editorial text-[19px] font-normal text-[#143B2B]">
+                    {group.title}
+                  </span>
+                  <span className="ml-2 text-[11px] font-light text-[#5F7067]">
+                    ({group.items.length})
+                  </span>
+                </div>
+
+                <div className="flex shrink-0 items-center gap-2.5">
+                  <div className="text-right tabular-nums">
+                    <p className="text-[14px] font-medium text-[#143B2B]">
+                      {formatPrimary(group.subtotalGbp)}
+                    </p>
+                    <p className="text-[10.5px] font-light text-[#5F7067]">
+                      {formatSecondary(group.subtotalGbp)}
+                    </p>
+                  </div>
+                  {isOpen ? (
+                    <ChevronUp className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+                  )}
+                </div>
+              </button>
+
+              {isOpen && (
+                <div className="border-t border-[#F2EDE4] bg-[#FDFCF9] px-4 py-3">
+                  {group.items.length === 0 ? (
+                    <p className="py-1 text-center text-[12px] font-light text-[#5F7067]">
+                      {t.budget.noExpense}
+                    </p>
+                  ) : (
+                    <ul className="divide-y divide-[#F2EDE4]">
+                      {group.items.map((item) =>
+                        renderExpenseRow(item, {
+                          showDay: true,
+                          showCategory: true,
+                          keyPrefix: `person-${group.id}`,
                         })
                       )}
                     </ul>

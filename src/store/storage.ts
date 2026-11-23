@@ -1,21 +1,25 @@
 import { INITIAL_EXPENSES } from '../data/expenses';
 import { INITIAL_CHECKLIST } from '../data/infos';
 import { INITIAL_STEPS } from '../data/steps';
-import type { ExchangeRates, TripState, TripStep } from '../types/trip';
+import type { ExchangeRates, Language, TripState, TripStep } from '../types/trip';
 
-export const STATE_VERSION = 3;
+export const STATE_VERSION = 4;
 export const STORAGE_KEY = `londres-noel-2026:state:v${STATE_VERSION}`;
 const LEGACY_KEYS = [
+  'londres-noel-2026:state:v3',
   'londres-noel-2026:state:v2',
   'londres-noel-2026:state:v1',
 ];
 export const FAMILY_CODE_KEY = 'londres-noel-2026:family-code';
 export const SELECTED_DAY_KEY = 'londres-noel-2026:selected-day';
+export const LANGUAGE_KEY = 'londres-noel-2026:lang';
 
 export const DEFAULT_RATES: ExchangeRates = {
   madPerGbp: 12.6,
   eurPerGbp: 1.18,
 };
+
+export const DEFAULT_PEOPLE: string[] = ['Famille', 'Mehdi', 'Aïda', 'Aya', 'Adam'];
 
 export const DEFAULT_UPDATED_AT = '1970-01-01T00:00:00.000Z';
 
@@ -28,6 +32,7 @@ export function createDefaultState(): TripState {
     expenses: INITIAL_EXPENSES.map((expense) => ({ ...expense })),
     checklist: INITIAL_CHECKLIST.map((item) => ({ ...item })),
     rates: { ...DEFAULT_RATES },
+    people: [...DEFAULT_PEOPLE],
   };
 }
 
@@ -57,6 +62,10 @@ function timeToMinutes(timeStr: string): number {
 export function migrateTripState(parsed: TripState): TripState {
   let expenses = parsed.expenses;
   let steps: TripStep[] = parsed.steps;
+  let people: string[] =
+    Array.isArray(parsed.people) && parsed.people.length > 0
+      ? parsed.people
+      : [...DEFAULT_PEOPLE];
 
   // v1 -> v2: ensure pre-paid RAM flight tickets expense exists
   if (parsed.version < 2) {
@@ -79,7 +88,6 @@ export function migrateTripState(parsed: TripState): TripState {
 
     const merged = [...upgraded, ...newMeals];
 
-    // Re-normalize order per day chronologically by timeStart
     const byDay = new Map<string, TripStep[]>();
     for (const step of merged) {
       const list = byDay.get(step.dayId) ?? [];
@@ -101,11 +109,22 @@ export function migrateTripState(parsed: TripState): TripState {
     steps = normalized;
   }
 
+  // v3 -> v4: ensure people list exists and default flight expense has person = 'Famille' if unset
+  if (parsed.version < 4) {
+    if (!Array.isArray(parsed.people) || parsed.people.length === 0) {
+      people = [...DEFAULT_PEOPLE];
+    }
+    expenses = expenses.map((e) =>
+      e.id === 'exp-global-flights' && !e.person ? { ...e, person: 'Famille' } : e
+    );
+  }
+
   return {
     ...createDefaultState(),
     ...parsed,
     steps,
     expenses,
+    people,
     version: STATE_VERSION,
     rates: {
       madPerGbp:
@@ -178,6 +197,23 @@ export function loadSelectedDay(fallbackDayId: string): string {
 export function saveSelectedDay(dayId: string): void {
   try {
     window.localStorage.setItem(SELECTED_DAY_KEY, dayId);
+  } catch {
+    // Ignore
+  }
+}
+
+export function loadLanguage(): Language {
+  try {
+    const val = window.localStorage.getItem(LANGUAGE_KEY);
+    return val === 'en' ? 'en' : 'fr';
+  } catch {
+    return 'fr';
+  }
+}
+
+export function saveLanguage(lang: Language): void {
+  try {
+    window.localStorage.setItem(LANGUAGE_KEY, lang);
   } catch {
     // Ignore
   }

@@ -15,6 +15,7 @@ import type {
   ChecklistItem,
   ExchangeRates,
   Expense,
+  Language,
   SyncStatus,
   TabId,
   TripState,
@@ -25,9 +26,11 @@ import {
   DEFAULT_UPDATED_AT,
   isValidTripState,
   loadFamilyCode,
+  loadLanguage,
   loadSelectedDay,
   loadTripState,
   saveFamilyCode,
+  saveLanguage,
   saveSelectedDay,
   saveTripState,
   STATE_VERSION,
@@ -53,9 +56,11 @@ function generateId(prefix: string): string {
 
 interface TripContextValue {
   state: TripState;
+  lang: Language;
   activeTab: TabId;
   selectedDayId: string;
   syncStatus: SyncStatus;
+  setLang: (lang: Language) => void;
   setActiveTab: (tab: TabId) => void;
   setSelectedDayId: (dayId: string) => void;
   navigateToDay: (dayId: string, tab?: TabId) => void;
@@ -76,12 +81,14 @@ interface TripContextValue {
   // Carnet
   updateMemory: (dayId: string, note: string) => void;
 
-  // Budget
+  // Budget & People
   toggleExpensePaid: (expenseId: string) => void;
   addExpense: (expense: Omit<Expense, 'id'>) => void;
   updateExpense: (expenseId: string, patch: Partial<Omit<Expense, 'id'>>) => void;
   deleteExpense: (expenseId: string) => void;
   updateRates: (rates: ExchangeRates) => void;
+  addPerson: (name: string) => void;
+  removePerson: (name: string) => void;
 
   // Infos & Sync
   toggleChecklistItem: (itemId: string) => void;
@@ -98,6 +105,7 @@ const TripContext = createContext<TripContextValue | null>(null);
 
 export function TripProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<TripState>(() => loadTripState());
+  const [lang, setLangState] = useState<Language>(() => loadLanguage());
   const [activeTab, setActiveTab] = useState<TabId>('planning');
   const [selectedDayId, setSelectedDayIdState] = useState<string>(() => {
     const stored = loadSelectedDay(TRIP_DAYS[0].id);
@@ -113,6 +121,11 @@ export function TripProvider({ children }: { children: ReactNode }) {
   const pushTimeoutRef = useRef<number | null>(null);
   const stateRef = useRef(state);
   stateRef.current = state;
+
+  const setLang = useCallback((nextLang: Language) => {
+    setLangState(nextLang);
+    saveLanguage(nextLang);
+  }, []);
 
   const setSelectedDayId = useCallback((dayId: string) => {
     setSelectedDayIdState(dayId);
@@ -541,6 +554,36 @@ export function TripProvider({ children }: { children: ReactNode }) {
     [mutate]
   );
 
+  const addPerson = useCallback(
+    (rawName: string) => {
+      const name = rawName.trim();
+      if (!name) return;
+      mutate((prev) => {
+        if (prev.people.some((p) => p.toLowerCase() === name.toLowerCase())) {
+          return prev;
+        }
+        return {
+          ...prev,
+          people: [...prev.people, name],
+        };
+      });
+    },
+    [mutate]
+  );
+
+  const removePerson = useCallback(
+    (name: string) => {
+      mutate((prev) => ({
+        ...prev,
+        people: prev.people.filter((p) => p !== name),
+        expenses: prev.expenses.map((e) =>
+          e.person === name ? { ...e, person: undefined } : e
+        ),
+      }));
+    },
+    [mutate]
+  );
+
   const toggleChecklistItem = useCallback(
     (itemId: string) => {
       mutate((prev) => ({
@@ -651,9 +694,11 @@ export function TripProvider({ children }: { children: ReactNode }) {
   const value = useMemo<TripContextValue>(
     () => ({
       state,
+      lang,
       activeTab,
       selectedDayId,
       syncStatus,
+      setLang,
       setActiveTab,
       setSelectedDayId,
       navigateToDay,
@@ -672,6 +717,8 @@ export function TripProvider({ children }: { children: ReactNode }) {
       updateExpense,
       deleteExpense,
       updateRates,
+      addPerson,
+      removePerson,
       toggleChecklistItem,
       addChecklistItem,
       deleteChecklistItem,
@@ -683,9 +730,11 @@ export function TripProvider({ children }: { children: ReactNode }) {
     }),
     [
       state,
+      lang,
       activeTab,
       selectedDayId,
       syncStatus,
+      setLang,
       setSelectedDayId,
       navigateToDay,
       toggleStepDone,
@@ -703,6 +752,8 @@ export function TripProvider({ children }: { children: ReactNode }) {
       updateExpense,
       deleteExpense,
       updateRates,
+      addPerson,
+      removePerson,
       toggleChecklistItem,
       addChecklistItem,
       deleteChecklistItem,

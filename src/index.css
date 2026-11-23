@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
 
 @theme {
   --color-ivory: #FAF8F4;
@@ -51,7 +52,6 @@
   font-family: var(--font-margin);
 }
 
-/* Smooth horizontal scrollbar hiding for the 11-day ribbon while keeping native touch scroll */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
@@ -60,7 +60,6 @@
   scrollbar-width: none;
 }
 
-/* Delicate lined paper for Carnet memories */
 .notebook-paper {
   background-color: #FDFCF9;
   background-image: repeating-linear-gradient(
@@ -73,7 +72,6 @@
   line-height: 34px;
 }
 
-/* Airy, ultra-refined Ivy card */
 .ivy-card {
   background-color: #FFFFFF;
   border: 1px solid #ECE7DE;
@@ -82,4 +80,37 @@
 
 .safe-bottom {
   padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+}
+
+/* Custom Ivy Collection warm parchment map styling */
+.ivy-leaflet-container {
+  background-color: #F4F0E8;
+  font-family: var(--font-sans);
+}
+
+.ivy-leaflet-container .leaflet-tile-pane {
+  filter: sepia(0.24) saturate(0.72) hue-rotate(-6deg) contrast(0.97) brightness(1.01);
+}
+
+.ivy-leaflet-container .leaflet-popup-content-wrapper {
+  background-color: #FAF8F4;
+  color: #143B2B;
+  border: 1px solid #E2D6BE;
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(20, 59, 43, 0.12);
+}
+
+.ivy-leaflet-container .leaflet-popup-tip {
+  background-color: #FAF8F4;
+}
+
+.ivy-leaflet-container .leaflet-control-attribution {
+  background: rgba(250, 248, 244, 0.78) !important;
+  color: #5F7067 !important;
+  font-size: 9px !important;
+  padding: 1px 5px !important;
+}
+
+.ivy-leaflet-container .leaflet-control-attribution a {
+  color: #143B2B !important;
 }

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { AlertCircle, BookOpen, Plus } from 'lucide-react';
 import { DAY_MAP, TRIP_DAYS } from '../data/days';
+import { getDayLabel, UI_TEXT } from '../i18n/translations';
 import { useTrip } from '../store/TripContext';
 import type { TripStep } from '../types/trip';
 import { DaySelector } from './DaySelector';
@@ -9,6 +10,7 @@ import { StepModal } from './StepModal';
 
 export function PlanningTab() {
   const {
+    lang,
     state,
     selectedDayId,
     setActiveTab,
@@ -24,7 +26,9 @@ export function PlanningTab() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingStep, setEditingStep] = useState<TripStep | undefined>(undefined);
 
+  const t = UI_TEXT[lang];
   const day = DAY_MAP[selectedDayId] ?? TRIP_DAYS[0];
+  const dayLbl = getDayLabel(day, lang);
 
   const daySteps = useMemo(
     () =>
@@ -40,11 +44,10 @@ export function PlanningTab() {
     <section id="tab-panel-planning" className="space-y-5">
       <DaySelector />
 
-      {/* Serene Day Heading */}
       <div className="pt-1">
         <div className="flex items-center justify-between gap-2">
           <span className="text-[11px] font-normal uppercase tracking-[0.16em] text-[#B39258]">
-            Jour {day.dayNumber} · {day.neighborhood}
+            {t.dayPrefix} {day.dayNumber} · {day.neighborhood}
           </span>
           <button
             type="button"
@@ -52,12 +55,12 @@ export function PlanningTab() {
             className="inline-flex items-center gap-1 text-[12px] font-normal text-[#5F7067] transition hover:text-[#143B2B]"
           >
             <BookOpen className="h-3.5 w-3.5 stroke-[1.5] text-[#B39258]" />
-            <span>Journal</span>
+            <span>{t.nav.carnet}</span>
           </button>
         </div>
 
         <h2 className="font-editorial mt-1.5 text-[30px] font-normal leading-tight text-[#143B2B]">
-          {day.dateLong}
+          {dayLbl.dateLong}
         </h2>
         <p className="mt-1 text-[13.5px] font-light text-[#5F7067]">{day.title}</p>
 
@@ -78,7 +81,6 @@ export function PlanningTab() {
         )}
       </div>
 
-      {/* Subtle Burgundy Alert Banner — Critical Days Only */}
       {day.criticalBanner && (
         <div
           id={`critical-banner-${day.id}`}
@@ -99,15 +101,14 @@ export function PlanningTab() {
         </div>
       )}
 
-      {/* Airy Steps List */}
       <div className="space-y-3.5">
         {daySteps.length === 0 ? (
           <div className="ivy-card rounded-2xl px-5 py-8 text-center">
             <p className="font-editorial text-[22px] font-normal text-[#143B2B]">
-              Journée libre
+              {t.freeDayTitle}
             </p>
             <p className="mt-1 text-[13px] font-light text-[#5F7067]">
-              Ajoutez une étape ou piochez une idée dans Activités.
+              {t.freeDayDesc}
             </p>
           </div>
         ) : (
@@ -131,7 +132,6 @@ export function PlanningTab() {
         )}
       </div>
 
-      {/* Add Step CTA */}
       <button
         type="button"
         id="add-step-btn"
@@ -142,7 +142,7 @@ export function PlanningTab() {
         className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-[#D8CEBC] bg-white/60 py-3.5 text-[13px] font-normal text-[#143B2B] transition hover:border-[#B39258] hover:bg-white"
       >
         <Plus className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
-        <span>Ajouter une étape</span>
+        <span>{t.addStep}</span>
       </button>
 
       {modalOpen && (

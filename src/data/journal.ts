@@ -17,8 +17,24 @@ export const JOURNAL_CONTENT: Record<string, JournalDayContent> = {
     route: {
       mode: 'r',
       stops: [
-        { label: 'Heathrow T4', query: 'London Heathrow Airport Terminal 4, UK' },
-        { label: 'Mayfair W1J 7SU', query: 'Hertford Street, Mayfair, London W1J 7SU, UK' },
+        {
+          label: 'Heathrow T4',
+          query: 'London Heathrow Airport Terminal 4, UK',
+          lat: 51.4598,
+          lng: -0.4457,
+        },
+        {
+          label: 'Mayfair W1J 7SU',
+          query: 'Hertford Street, Mayfair, London W1J 7SU, UK',
+          lat: 51.5062,
+          lng: -0.1483,
+        },
+        {
+          label: 'Mount Street',
+          query: 'Mount Street, Mayfair, London, UK',
+          lat: 51.5091,
+          lng: -0.1506,
+        },
       ],
     },
   },
@@ -38,9 +54,24 @@ export const JOURNAL_CONTENT: Record<string, JournalDayContent> = {
     route: {
       mode: 'w',
       stops: [
-        { label: 'Mayfair W1J 7SU', query: 'Hertford Street, Mayfair, London W1J 7SU, UK' },
-        { label: 'Hamleys', query: 'Hamleys, 188-196 Regent Street, London, UK' },
-        { label: 'British Museum', query: 'The British Museum, Great Russell Street, London, UK' },
+        {
+          label: 'Mayfair W1J 7SU',
+          query: 'Hertford Street, Mayfair, London W1J 7SU, UK',
+          lat: 51.5062,
+          lng: -0.1483,
+        },
+        {
+          label: 'Hamleys',
+          query: 'Hamleys, 188-196 Regent Street, London, UK',
+          lat: 51.5128,
+          lng: -0.1402,
+        },
+        {
+          label: 'British Museum',
+          query: 'The British Museum, Great Russell Street, London, UK',
+          lat: 51.5194,
+          lng: -0.127,
+        },
       ],
     },
   },
@@ -60,9 +91,24 @@ export const JOURNAL_CONTENT: Record<string, JournalDayContent> = {
     route: {
       mode: 'w',
       stops: [
-        { label: 'Mayfair W1J 7SU', query: 'Hertford Street, Mayfair, London W1J 7SU, UK' },
-        { label: 'Winter Wonderland', query: 'Hyde Park Winter Wonderland, London, UK' },
-        { label: 'Shepherd Market', query: 'Shepherd Market, Mayfair, London, UK' },
+        {
+          label: 'Mayfair W1J 7SU',
+          query: 'Hertford Street, Mayfair, London W1J 7SU, UK',
+          lat: 51.5062,
+          lng: -0.1483,
+        },
+        {
+          label: 'Winter Wonderland',
+          query: 'Hyde Park Winter Wonderland, London, UK',
+          lat: 51.5074,
+          lng: -0.1578,
+        },
+        {
+          label: 'Shepherd Market',
+          query: 'Shepherd Market, Mayfair, London, UK',
+          lat: 51.5064,
+          lng: -0.1466,
+        },
       ],
     },
   },
@@ -82,10 +128,30 @@ export const JOURNAL_CONTENT: Record<string, JournalDayContent> = {
     route: {
       mode: 'w',
       stops: [
-        { label: 'Mayfair W1J 7SU', query: 'Hertford Street, Mayfair, London W1J 7SU, UK' },
-        { label: 'Buckingham Palace', query: 'Buckingham Palace, London, UK' },
-        { label: 'St James’s Park', query: 'St Jamess Park, London, UK' },
-        { label: 'Regent Street', query: 'Regent Street, London, UK' },
+        {
+          label: 'Mayfair W1J 7SU',
+          query: 'Hertford Street, Mayfair, London W1J 7SU, UK',
+          lat: 51.5062,
+          lng: -0.1483,
+        },
+        {
+          label: 'Buckingham Palace',
+          query: 'Buckingham Palace, London, UK',
+          lat: 51.5014,
+          lng: -0.1419,
+        },
+        {
+          label: 'St James’s Park',
+          query: 'St Jamess Park, London, UK',
+          lat: 51.5025,
+          lng: -0.1348,
+        },
+        {
+          label: 'Regent Street',
+          query: 'Regent Street, London, UK',
+          lat: 51.5112,
+          lng: -0.1394,
+        },
       ],
     },
   },
@@ -105,8 +171,18 @@ export const JOURNAL_CONTENT: Record<string, JournalDayContent> = {
     route: {
       mode: 'r',
       stops: [
-        { label: 'Mayfair W1J 7SU', query: 'Hertford Street, Mayfair, London W1J 7SU, UK' },
-        { label: 'Battersea Power Station', query: 'Battersea Power Station, London SW11 8AL, UK' },
+        {
+          label: 'Mayfair W1J 7SU',
+          query: 'Hertford Street, Mayfair, London W1J 7SU, UK',
+          lat: 51.5062,
+          lng: -0.1483,
+        },
+        {
+          label: 'Battersea Power Station',
+          query: 'Battersea Power Station, London SW11 8AL, UK',
+          lat: 51.4816,
+          lng: -0.1446,
+        },
       ],
     },
   },
@@ -126,10 +202,30 @@ export const JOURNAL_CONTENT: Record<string, JournalDayContent> = {
     route: {
       mode: 'w',
       stops: [
-        { label: 'Tower Hill', query: 'Tower Hill Underground Station, London, UK' },
-        { label: 'Tour de Londres', query: 'Tower of London, London EC3N 4AB, UK' },
-        { label: 'St Katharine Docks', query: 'St Katharine Docks, London, UK' },
-        { label: 'Tower Bridge', query: 'Tower Bridge, London SE1 2UP, UK' },
+        {
+          label: 'Tower Hill',
+          query: 'Tower Hill Underground Station, London, UK',
+          lat: 51.5098,
+          lng: -0.0766,
+        },
+        {
+          label: 'Tour de Londres',
+          query: 'Tower of London, London EC3N 4AB, UK',
+          lat: 51.5081,
+          lng: -0.0759,
+        },
+        {
+          label: 'St Katharine Docks',
+          query: 'St Katharine Docks, London, UK',
+          lat: 51.5067,
+          lng: -0.0717,
+        },
+        {
+          label: 'Tower Bridge',
+          query: 'Tower Bridge, London SE1 2UP, UK',
+          lat: 51.5055,
+          lng: -0.0754,
+        },
       ],
     },
   },
@@ -147,11 +243,26 @@ export const JOURNAL_CONTENT: Record<string, JournalDayContent> = {
       'Prendre un haut de rechange léger pour Adam (les jeux d’eau de The Garden ont des tabliers, mais les manches finissent souvent mouillées !). Réserver 10h00 au NHM et le créneau Wonderlab bien en amont.',
     marginQuote: '4 minutes de Tube direct : le luxe de Mayfair.',
     route: {
-      mode: 'w',
+      mode: 'r',
       stops: [
-        { label: 'Mayfair W1J 7SU', query: 'Hertford Street, Mayfair, London W1J 7SU, UK' },
-        { label: 'Natural History Museum', query: 'Natural History Museum, Cromwell Road, London, UK' },
-        { label: 'Science Museum', query: 'Science Museum, Exhibition Road, London, UK' },
+        {
+          label: 'Mayfair W1J 7SU',
+          query: 'Hertford Street, Mayfair, London W1J 7SU, UK',
+          lat: 51.5062,
+          lng: -0.1483,
+        },
+        {
+          label: 'Natural History Museum',
+          query: 'Natural History Museum, Cromwell Road, London, UK',
+          lat: 51.4967,
+          lng: -0.1764,
+        },
+        {
+          label: 'Science Museum',
+          query: 'Science Museum, Exhibition Road, London, UK',
+          lat: 51.4978,
+          lng: -0.1745,
+        },
       ],
     },
   },
@@ -171,10 +282,30 @@ export const JOURNAL_CONTENT: Record<string, JournalDayContent> = {
     route: {
       mode: 'w',
       stops: [
-        { label: 'Bethnal Green', query: 'Bethnal Green Underground Station, London, UK' },
-        { label: 'Young V&A', query: 'Young V&A, Cambridge Heath Road, London, UK' },
-        { label: 'Victoria Park', query: 'Victoria Park Pavilion Cafe, London, UK' },
-        { label: 'Spitalfields', query: 'Old Spitalfields Market, London, UK' },
+        {
+          label: 'Bethnal Green',
+          query: 'Bethnal Green Underground Station, London, UK',
+          lat: 51.527,
+          lng: -0.0549,
+        },
+        {
+          label: 'Young V&A',
+          query: 'Young V&A, Cambridge Heath Road, London, UK',
+          lat: 51.529,
+          lng: -0.0554,
+        },
+        {
+          label: 'Victoria Park',
+          query: 'Victoria Park Pavilion Cafe, London, UK',
+          lat: 51.5356,
+          lng: -0.0445,
+        },
+        {
+          label: 'Spitalfields',
+          query: 'Old Spitalfields Market, London, UK',
+          lat: 51.5196,
+          lng: -0.0754,
+        },
       ],
     },
   },
@@ -194,10 +325,30 @@ export const JOURNAL_CONTENT: Record<string, JournalDayContent> = {
     route: {
       mode: 'w',
       stops: [
-        { label: 'Mayfair W1J 7SU', query: 'Hertford Street, Mayfair, London W1J 7SU, UK' },
-        { label: 'Buckingham Palace', query: 'Buckingham Palace, London, UK' },
-        { label: 'Seven Dials', query: 'Seven Dials Market, Covent Garden, London, UK' },
-        { label: 'Transport Museum', query: 'London Transport Museum, Covent Garden Piazza, London, UK' },
+        {
+          label: 'Mayfair W1J 7SU',
+          query: 'Hertford Street, Mayfair, London W1J 7SU, UK',
+          lat: 51.5062,
+          lng: -0.1483,
+        },
+        {
+          label: 'Buckingham Palace',
+          query: 'Buckingham Palace, London, UK',
+          lat: 51.5014,
+          lng: -0.1419,
+        },
+        {
+          label: 'Seven Dials',
+          query: 'Seven Dials Market, Covent Garden, London, UK',
+          lat: 51.5142,
+          lng: -0.1264,
+        },
+        {
+          label: 'Transport Museum',
+          query: 'London Transport Museum, Covent Garden Piazza, London, UK',
+          lat: 51.512,
+          lng: -0.1217,
+        },
       ],
     },
   },
@@ -217,9 +368,24 @@ export const JOURNAL_CONTENT: Record<string, JournalDayContent> = {
     route: {
       mode: 'w',
       stops: [
-        { label: 'Mayfair W1J 7SU', query: 'Hertford Street, Mayfair, London W1J 7SU, UK' },
-        { label: 'Memorial Playground', query: 'Diana Princess of Wales Memorial Playground, London, UK' },
-        { label: 'Kensington', query: 'High Street Kensington, London, UK' },
+        {
+          label: 'Mayfair W1J 7SU',
+          query: 'Hertford Street, Mayfair, London W1J 7SU, UK',
+          lat: 51.5062,
+          lng: -0.1483,
+        },
+        {
+          label: 'Memorial Playground',
+          query: 'Diana Princess of Wales Memorial Playground, London, UK',
+          lat: 51.5096,
+          lng: -0.1887,
+        },
+        {
+          label: 'Kensington',
+          query: 'High Street Kensington, London, UK',
+          lat: 51.5011,
+          lng: -0.1925,
+        },
       ],
     },
   },
@@ -239,8 +405,24 @@ export const JOURNAL_CONTENT: Record<string, JournalDayContent> = {
     route: {
       mode: 'r',
       stops: [
-        { label: 'Hyde Park Corner', query: 'Hyde Park Corner Underground Station, London, UK' },
-        { label: 'Heathrow T4', query: 'London Heathrow Airport Terminal 4, UK' },
+        {
+          label: 'Mayfair W1J 7SU',
+          query: 'Hertford Street, Mayfair, London W1J 7SU, UK',
+          lat: 51.5062,
+          lng: -0.1483,
+        },
+        {
+          label: 'Hyde Park Corner',
+          query: 'Hyde Park Corner Underground Station, London, UK',
+          lat: 51.5027,
+          lng: -0.1527,
+        },
+        {
+          label: 'Heathrow T4',
+          query: 'London Heathrow Airport Terminal 4, UK',
+          lat: 51.4598,
+          lng: -0.4457,
+        },
       ],
     },
   },

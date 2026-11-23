@@ -1,5 +1,7 @@
 export type TabId = 'planning' | 'carnet' | 'activites' | 'budget' | 'infos';
 
+export type Language = 'fr' | 'en';
+
 export type BookingStatus =
   | 'a_reserver'
   | 'reserve'
@@ -57,9 +59,16 @@ export interface TripStep {
   bonusActivityId?: string;
 }
 
+export interface DayRouteStop {
+  label: string;
+  query: string;
+  lat: number;
+  lng: number;
+}
+
 export interface DayRoute {
   mode: 'w' | 'r';
-  stops: { label: string; query: string }[];
+  stops: DayRouteStop[];
 }
 
 export interface JournalDayContent {
@@ -108,6 +117,7 @@ export interface Expense {
   amountGbp: number;
   paid: boolean;
   paymentMethod?: string;
+  person?: string;
   note?: string;
   linkedStepId?: string;
   isTowerHamletsBenefit?: boolean;
@@ -141,4 +151,5 @@ export interface TripState {
   expenses: Expense[];
   checklist: ChecklistItem[];
   rates: ExchangeRates;
+  people: string[];
 }

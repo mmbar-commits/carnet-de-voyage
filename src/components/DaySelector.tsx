@@ -1,9 +1,10 @@
 import { useEffect, useRef } from 'react';
 import { TRIP_DAYS } from '../data/days';
+import { getDayLabel } from '../i18n/translations';
 import { useTrip } from '../store/TripContext';
 
 export function DaySelector() {
-  const { selectedDayId, setSelectedDayId, state } = useTrip();
+  const { lang, selectedDayId, setSelectedDayId, state } = useTrip();
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const buttonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
@@ -24,13 +25,14 @@ export function DaySelector() {
         ref={scrollRef}
         id="day-selector-strip"
         role="tablist"
-        aria-label="Sélecteur des 11 jours du séjour"
+        aria-label="11-day selector"
         className="no-scrollbar flex gap-2 overflow-x-auto"
       >
         {TRIP_DAYS.map((day) => {
           const isSelected = day.id === selectedDayId;
           const daySteps = state.steps.filter((s) => s.dayId === day.id);
           const allDone = daySteps.length > 0 && daySteps.every((s) => s.done);
+          const lbl = getDayLabel(day, lang);
 
           return (
             <button
@@ -54,15 +56,14 @@ export function DaySelector() {
                   isSelected ? 'text-[#D7BD8A]' : 'text-[#5F7067]'
                 }`}
               >
-                {day.weekdayShort}
+                {lbl.weekdayShort}
               </span>
               <span className="mt-0.5 text-[12.5px] font-medium tabular-nums leading-tight">
-                {day.dateShort}
+                {lbl.dateShort}
               </span>
               <div className="mt-1 flex h-1.5 items-center gap-1">
                 {day.isCritical && (
                   <span
-                    title="Jour à contrainte calendaire"
                     className={`h-1.5 w-1.5 rounded-full ${
                       isSelected ? 'bg-[#E9A6AE]' : 'bg-[#7C2D36]/80'
                     }`}
@@ -70,7 +71,6 @@ export function DaySelector() {
                 )}
                 {allDone && (
                   <span
-                    title="Toutes les étapes réalisées"
                     className={`h-1.5 w-1.5 rounded-full ${
                       isSelected ? 'bg-[#D7BD8A]' : 'bg-[#B39258]'
                     }`}

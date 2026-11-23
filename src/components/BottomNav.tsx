@@ -1,25 +1,27 @@
 import { BookOpen, CalendarDays, Compass, Info, Wallet } from 'lucide-react';
+import { UI_TEXT } from '../i18n/translations';
 import { useTrip } from '../store/TripContext';
 import type { TabId } from '../types/trip';
 
-const NAV_ITEMS: { id: TabId; label: string; icon: typeof CalendarDays }[] = [
-  { id: 'planning', label: 'Planning', icon: CalendarDays },
-  { id: 'carnet', label: 'Journal', icon: BookOpen },
-  { id: 'activites', label: 'Activités', icon: Compass },
-  { id: 'budget', label: 'Budget', icon: Wallet },
-  { id: 'infos', label: 'Infos', icon: Info },
+const NAV_ICONS: { id: TabId; icon: typeof CalendarDays }[] = [
+  { id: 'planning', icon: CalendarDays },
+  { id: 'carnet', icon: BookOpen },
+  { id: 'activites', icon: Compass },
+  { id: 'budget', icon: Wallet },
+  { id: 'infos', icon: Info },
 ];
 
 export function BottomNav() {
-  const { activeTab, setActiveTab } = useTrip();
+  const { lang, activeTab, setActiveTab } = useTrip();
+  const labels = UI_TEXT[lang].nav;
 
   return (
     <nav
-      aria-label="Navigation principale"
+      aria-label="Navigation"
       className="safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-[#ECE7DE] bg-[#FAF8F4]/95 backdrop-blur-md"
     >
       <div className="mx-auto grid max-w-md grid-cols-5 px-2 pt-2 pb-1">
-        {NAV_ITEMS.map(({ id, label, icon: Icon }) => {
+        {NAV_ICONS.map(({ id, icon: Icon }) => {
           const isActive = activeTab === id;
           return (
             <button
@@ -53,7 +55,7 @@ export function BottomNav() {
                   isActive ? 'font-medium text-[#143B2B]' : 'font-light'
                 }`}
               >
-                {label}
+                {labels[id]}
               </span>
             </button>
           );

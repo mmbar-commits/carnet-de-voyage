@@ -9,28 +9,11 @@ import {
 } from 'lucide-react';
 import { DAY_MAP, TRIP_DAYS } from '../data/days';
 import { JOURNAL_CONTENT } from '../data/journal';
+import { getDayLabel, UI_TEXT } from '../i18n/translations';
 import { useTrip } from '../store/TripContext';
 import type { DayRoute } from '../types/trip';
+import { DayRouteMap } from './DayRouteMap';
 import { DaySelector } from './DaySelector';
-
-const MEMORY_PROMPTS = [
-  'Mot d’Aya : «  »',
-  'Mot d’Adam : «  »',
-  'Coup de cœur : ',
-];
-
-function buildEmbeddedRouteUrl(route: DayRoute): string {
-  const [origin, ...rest] = route.stops;
-  if (!origin || rest.length === 0) {
-    return `https://maps.google.com/maps?q=${encodeURIComponent(
-      origin?.query || 'Mayfair, London, UK'
-    )}&z=14&output=embed`;
-  }
-  const daddr = rest.map((s) => s.query).join(' to:');
-  return `https://maps.google.com/maps?saddr=${encodeURIComponent(
-    origin.query
-  )}&daddr=${encodeURIComponent(daddr)}&dirflg=${route.mode}&hl=fr&output=embed`;
-}
 
 function buildExternalRouteUrl(route: DayRoute): string {
   const origin = route.stops[0]?.query || 'Mayfair, London, UK';
@@ -55,10 +38,12 @@ function buildExternalRouteUrl(route: DayRoute): string {
 }
 
 export function CarnetTab() {
-  const { selectedDayId, state, updateMemory, setActiveTab } = useTrip();
+  const { lang, selectedDayId, state, updateMemory, setActiveTab } = useTrip();
   const [justSaved, setJustSaved] = useState(false);
 
+  const t = UI_TEXT[lang];
   const day = DAY_MAP[selectedDayId] ?? TRIP_DAYS[0];
+  const dayLbl = getDayLabel(day, lang);
   const entry = JOURNAL_CONTENT[day.id];
   const memory = state.memories[day.id];
   const memoryText = memory?.note ?? '';
@@ -75,24 +60,23 @@ export function CarnetTab() {
   };
 
   const formattedUpdatedAt = memory?.updatedAt
-    ? new Date(memory.updatedAt).toLocaleTimeString('fr-FR', {
+    ? new Date(memory.updatedAt).toLocaleTimeString(lang === 'fr' ? 'fr-FR' : 'en-GB', {
         hour: '2-digit',
         minute: '2-digit',
       })
     : null;
 
-  const embedMapUrl = buildEmbeddedRouteUrl(entry.route);
   const externalMapUrl = buildExternalRouteUrl(entry.route);
 
   return (
     <section id="tab-panel-carnet" className="space-y-5">
       <DaySelector />
 
-      {/* Editorial Journal Page — authentic French cursive handwriting & breathing room */}
+      {/* Editorial Journal Page */}
       <article className="ivy-card rounded-3xl px-5 py-6">
         <div className="flex items-center justify-between gap-2">
           <span className="text-[11px] font-normal uppercase tracking-[0.18em] text-[#B39258]">
-            Journal · Jour {day.dayNumber} sur 11
+            {t.journal.badge} · {t.dayPrefix} {day.dayNumber} {t.ofDays}
           </span>
           <button
             type="button"
@@ -100,12 +84,12 @@ export function CarnetTab() {
             className="inline-flex items-center gap-1 text-[12px] font-normal text-[#5F7067] hover:text-[#143B2B]"
           >
             <CalendarDays className="h-3.5 w-3.5 stroke-[1.5] text-[#B39258]" />
-            <span>Planning</span>
+            <span>{t.nav.planning}</span>
           </button>
         </div>
 
         <h2 className="font-editorial mt-2 text-[30px] font-normal leading-tight text-[#143B2B]">
-          {day.dateLong}
+          {dayLbl.dateLong}
         </h2>
         <p className="font-editorial mt-1 text-[19px] font-normal italic text-[#5F7067]">
           {entry.subtitle}
@@ -125,11 +109,10 @@ export function CarnetTab() {
           </div>
         )}
 
-        {/* Airy reading chapters in Playwrite FR Moderne cursive */}
         <div className="mt-6 space-y-6 divide-y divide-[#F1ECE2]">
           <div className="pt-0">
             <h3 className="font-editorial text-[21px] font-medium text-[#143B2B]">
-              Le Matin
+              {t.journal.morning}
             </h3>
             <p className="font-hand mt-2.5 text-[13.5px] font-light leading-[2.05] text-[#143B2B]/90">
               {entry.morning}
@@ -138,7 +121,7 @@ export function CarnetTab() {
 
           <div className="pt-5">
             <h3 className="font-editorial text-[21px] font-medium text-[#143B2B]">
-              Pause Gourmande
+              {t.journal.lunch}
             </h3>
             <p className="mt-0.5 text-[11.5px] font-normal tracking-wide text-[#8F7038]">
               {entry.lunchTitle}
@@ -150,7 +133,7 @@ export function CarnetTab() {
 
           <div className="pt-5">
             <h3 className="font-editorial text-[21px] font-medium text-[#143B2B]">
-              L’Après-midi
+              {t.journal.afternoon}
             </h3>
             <p className="font-hand mt-2.5 text-[13.5px] font-light leading-[2.05] text-[#143B2B]/90">
               {entry.afternoon}
@@ -159,7 +142,7 @@ export function CarnetTab() {
 
           <div className="pt-5">
             <h3 className="font-editorial text-[20px] font-medium text-[#143B2B]">
-              Note de poche
+              {t.journal.logistics}
             </h3>
             <p className="mt-2 text-[13px] font-light leading-[1.7] text-[#5F7067]">
               {entry.logisticsNote}
@@ -174,7 +157,7 @@ export function CarnetTab() {
           <div className="flex items-center gap-2">
             <Feather className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
             <h3 className="font-editorial text-[22px] font-medium text-[#143B2B]">
-              Nos petits mots & souvenirs
+              {t.journal.memories}
             </h3>
           </div>
           <span
@@ -184,18 +167,18 @@ export function CarnetTab() {
             {justSaved ? (
               <>
                 <Check className="h-3.5 w-3.5 text-[#143B2B]" />
-                <span className="text-[#143B2B]">Enregistré</span>
+                <span className="text-[#143B2B]">{t.journal.saved}</span>
               </>
             ) : formattedUpdatedAt ? (
               <span>{formattedUpdatedAt}</span>
             ) : (
-              <span>Auto</span>
+              <span>{t.journal.auto}</span>
             )}
           </span>
         </div>
 
         <div className="mt-3 flex flex-wrap gap-1.5">
-          {MEMORY_PROMPTS.map((prompt) => (
+          {t.journal.prompts.map((prompt) => (
             <button
               key={prompt}
               type="button"
@@ -208,30 +191,35 @@ export function CarnetTab() {
         </div>
 
         <label className="sr-only" htmlFor="carnet-memory-textarea">
-          Nos petits mots et souvenirs du {day.dateLong}
+          {t.journal.memories}
         </label>
         <textarea
           id="carnet-memory-textarea"
           rows={4}
           value={memoryText}
           onChange={(e) => handleNoteChange(e.target.value)}
-          placeholder="Un mot d’Aya, un rire d’Adam, une belle adresse..."
+          placeholder={t.journal.placeholder}
           className="notebook-paper font-hand mt-3 w-full resize-y rounded-2xl border border-[#ECE7DE] px-4 py-2 text-[13.5px] font-light text-[#143B2B] placeholder:text-[#5F7067]/45 focus:border-[#143B2B] focus:outline-none"
         />
       </div>
 
-      {/* Embedded Interactive Google Maps Route Card for the Day */}
+      {/* Custom Ivy Collection Styled Day Itinerary Map (zero clutter overlays) */}
       <div
         id={`journal-map-card-${day.id}`}
         className="ivy-card overflow-hidden rounded-3xl"
       >
         <div className="px-5 pt-4 pb-3.5">
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <MapIcon className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
-              <h3 className="font-editorial text-[22px] font-medium text-[#143B2B]">
-                Itinéraire du jour
-              </h3>
+            <div>
+              <div className="flex items-center gap-2">
+                <MapIcon className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+                <h3 className="font-editorial text-[22px] font-medium text-[#143B2B]">
+                  {t.journal.routeTitle}
+                </h3>
+              </div>
+              <p className="mt-0.5 text-[11px] font-light text-[#5F7067]">
+                {entry.route.mode === 'w' ? t.journal.walkHint : t.journal.transitHint}
+              </p>
             </div>
 
             <a
@@ -239,17 +227,17 @@ export function CarnetTab() {
               href={externalMapUrl}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-1 rounded-full border border-[#ECE7DE] bg-[#FAF8F4] px-2.5 py-1 text-[11px] font-normal text-[#143B2B] transition hover:border-[#B39258]"
+              className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[#ECE7DE] bg-[#FAF8F4] px-2.5 py-1 text-[11px] font-normal text-[#143B2B] transition hover:border-[#B39258]"
             >
-              <span>Ouvrir Maps</span>
+              <span>{t.openMaps}</span>
               <ExternalLink className="h-3 w-3 stroke-[1.5] text-[#B39258]" />
             </a>
           </div>
 
-          <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-[11.5px] font-light text-[#5F7067]">
+          <div className="mt-3 flex flex-wrap items-center gap-1.5 text-[11.5px] font-light text-[#5F7067]">
             {entry.route.stops.map((stop, idx) => (
               <span key={stop.label} className="inline-flex items-center gap-1">
-                <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#F8F3E9] text-[10px] font-medium text-[#83662F]">
+                <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#143B2B] text-[9.5px] font-medium text-[#FAF8F4] ring-1 ring-[#B39258]">
                   {idx + 1}
                 </span>
                 <span className="text-[#143B2B]">{stop.label}</span>
@@ -261,16 +249,8 @@ export function CarnetTab() {
           </div>
         </div>
 
-        <div className="border-t border-[#ECE7DE] bg-[#F4F0E8]">
-          <iframe
-            key={day.id}
-            id={`journal-map-iframe-${day.id}`}
-            title={`Carte Google Maps du ${day.dateLong}`}
-            src={embedMapUrl}
-            loading="lazy"
-            referrerPolicy="no-referrer-when-downgrade"
-            className="block h-[270px] w-full border-0"
-          />
+        <div className="border-t border-[#ECE7DE]">
+          <DayRouteMap dayId={day.id} route={entry.route} />
         </div>
       </div>
     </section>

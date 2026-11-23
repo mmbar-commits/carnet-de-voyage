@@ -17,6 +17,7 @@ export const INITIAL_EXPENSES: Expense[] = [
     amountGbp: 618.96,
     paid: true,
     paymentMethod: 'Amex Mehdi',
+    person: 'Famille',
     note: '4 voyageurs · bagages cabine uniquement',
   },
   {

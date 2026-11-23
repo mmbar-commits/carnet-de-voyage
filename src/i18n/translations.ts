@@ -266,8 +266,9 @@ export const UI_TEXT = {
       noteMapsPlaceholder: 'Adresse Google Maps (optionnel)',
       syncLocal: 'Local',
       syncedAt: 'Synchronisé à',
-      shareTitle: 'Sauvegarde',
-      backupDesc: 'Exportez ou restaurez une copie JSON complète de ce voyage.',
+      shareTitle: 'Données & Sauvegarde',
+      backupDesc:
+        'Exportez, restaurez, réinitialisez ou supprimez définitivement ce voyage.',
       tripCodeLabel: 'Code du voyage',
       exportJson: 'Exporter JSON',
       importJson: 'Importer JSON',
@@ -647,8 +648,9 @@ export const UI_TEXT = {
       noteMapsPlaceholder: 'Google Maps address (optional)',
       syncLocal: 'Local',
       syncedAt: 'Synced at',
-      shareTitle: 'Backup',
-      backupDesc: 'Export or restore a full JSON copy of this trip.',
+      shareTitle: 'Data & Backup',
+      backupDesc:
+        'Export, restore, reset or permanently delete this trip.',
       tripCodeLabel: 'Trip code',
       exportJson: 'Export JSON',
       importJson: 'Import JSON',

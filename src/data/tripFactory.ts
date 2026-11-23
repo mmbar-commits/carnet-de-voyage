@@ -518,7 +518,7 @@ export function createBlankTripState(
   const homePerTrip = getApproxRate(input.tripCurrency, input.homeCurrency);
   const eurPerTrip = getApproxRate(input.tripCurrency, 'EUR');
   const cleanPeople =
-    input.people.length > 0 ? input.people : ['Famille', 'Mehdi', 'Aïda', 'Aya', 'Adam'];
+    input.people.length > 0 ? input.people : ['Famille'];
 
   const practicalNotes: PracticalNote[] = [
     {

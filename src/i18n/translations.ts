@@ -272,6 +272,42 @@ export const UI_TEXT = {
       joinBtn: 'Rejoindre',
       switchHint: 'Touchez un voyage pour l’ouvrir',
     },
+    landing: {
+      brandName: 'Carnet de Voyage',
+      eyebrow: 'Édition privée · Famille & proches',
+      heroLead: 'Vos voyages,',
+      heroAccent: 'précieusement',
+      heroTail: 'réunis.',
+      subtitle:
+        'Itinéraires jour par jour, souvenirs écrits à la main et budget partagé — uniquement accessibles aux membres invités.',
+      emailPlaceholder: 'vous@exemple.com',
+      features: {
+        planningTitle: 'Planning',
+        planningDesc: 'Jour par jour',
+        journalTitle: 'Journal',
+        journalDesc: 'Souvenirs & cartes',
+        budgetTitle: 'Budget',
+        budgetDesc: 'Multi-devises',
+      },
+      privacyNote:
+        'Accès sur invitation · Aucune donnée de voyage n’est visible sans connexion.',
+    },
+    hub: {
+      brandName: 'Carnet de Voyage',
+      eyebrow: 'Vos carnets',
+      title: 'Mes voyages',
+      subtitle: 'Choisissez un séjour pour l’ouvrir ou préparez votre prochaine escapade.',
+      backToTrips: 'Retour à mes voyages',
+      emptyTitle: 'Aucun voyage partagé pour le moment',
+      emptyDescBefore: 'Aucun carnet n’est encore associé à',
+      emptyDescAfter:
+        'Créez votre premier séjour ci-dessous ou demandez à un administrateur de vous inviter avec cette adresse.',
+      joinToggle: 'Rejoindre un voyage par code',
+      joinHelper:
+        'Saisissez le code d’un voyage auquel votre adresse email a été invitée.',
+      joiningBtn: 'Vérification...',
+      dismissNotice: 'Fermer',
+    },
     weather: {
       forecast: 'Prévision',
       seasonal: 'Normales de saison',
@@ -551,6 +587,42 @@ export const UI_TEXT = {
       joinPlaceholder: 'e.g. ROME-2027-A3F9',
       joinBtn: 'Join',
       switchHint: 'Tap a trip to open it',
+    },
+    landing: {
+      brandName: 'Carnet de Voyage',
+      eyebrow: 'Private edition · Family & friends',
+      heroLead: 'Your journeys,',
+      heroAccent: 'thoughtfully',
+      heroTail: 'kept together.',
+      subtitle:
+        'Day-by-day itineraries, handwritten travel journals and shared budgets — visible only to invited members.',
+      emailPlaceholder: 'you@example.com',
+      features: {
+        planningTitle: 'Itinerary',
+        planningDesc: 'Day by day',
+        journalTitle: 'Journal',
+        journalDesc: 'Memories & maps',
+        budgetTitle: 'Budget',
+        budgetDesc: 'Multi-currency',
+      },
+      privacyNote:
+        'Invite-only access · No trip data is ever visible without signing in.',
+    },
+    hub: {
+      brandName: 'Carnet de Voyage',
+      eyebrow: 'Your journals',
+      title: 'My trips',
+      subtitle: 'Choose a trip to open or start planning your next getaway.',
+      backToTrips: 'Back to my trips',
+      emptyTitle: 'No trips shared with you yet',
+      emptyDescBefore: 'No trip journal is linked to',
+      emptyDescAfter:
+        'Create your first trip below or ask a trip admin to invite this email address.',
+      joinToggle: 'Join a trip by code',
+      joinHelper:
+        'Enter the code of a trip your email address has been invited to.',
+      joiningBtn: 'Checking...',
+      dismissNotice: 'Dismiss',
     },
     weather: {
       forecast: 'Forecast',

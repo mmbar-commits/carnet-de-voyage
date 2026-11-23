@@ -19,10 +19,10 @@ export default defineConfig({
         'pwa-maskable-512x512.png',
       ],
       manifest: {
-        name: 'Londres en Famille — Noël 2026',
-        short_name: 'LDN 26',
+        name: 'Carnet de Voyage',
+        short_name: 'Voyages',
         description:
-          'Planning, Carnet de voyage, Activités & Budget pour Noël 2026 à Londres en famille (Mayfair, W1J 7SU).',
+          'Carnet de voyage privé — planning, journal, activités et budget partagés en famille.',
         theme_color: '#143B2B',
         background_color: '#FAF8F4',
         display: 'standalone',

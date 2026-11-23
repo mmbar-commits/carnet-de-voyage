@@ -149,7 +149,7 @@ export function migrateTripState(
   const rawMeta = (parsed as Partial<TripState>).meta;
   const isLondon = rawMeta
     ? Boolean(rawMeta.isLondonDefault)
-    : !familyCodeHint || familyCodeHint === DEFAULT_LONDON_TRIP_ID;
+    : familyCodeHint === DEFAULT_LONDON_TRIP_ID;
 
   let expenses = parsed.expenses;
   let steps: TripStep[] = parsed.steps;
@@ -441,6 +441,103 @@ export function removeTripFromIndex(tripId: string): TripSummary[] {
   const next = filtered.length > 0 ? filtered : [getDefaultLondonSummary()];
   saveTripsIndex(next);
   return next;
+}
+
+// ---------------------------------------------------------------------------
+// Per-user scoped storage (strict multi-user privacy isolation)
+// ---------------------------------------------------------------------------
+
+const USER_STORAGE_PREFIX = 'londres-noel-2026:u:';
+
+function getUserPrefix(userId: string): string {
+  return `${USER_STORAGE_PREFIX}${userId}:`;
+}
+
+function getUserTripsIndexKey(userId: string): string {
+  return `${getUserPrefix(userId)}trips:index:v1`;
+}
+
+function getUserTripStateKey(userId: string, code: string): string {
+  return `${getUserPrefix(userId)}trip:${code}`;
+}
+
+export function loadUserTripsIndex(userId: string): TripSummary[] {
+  if (!userId) return [];
+  try {
+    const raw = window.localStorage.getItem(getUserTripsIndexKey(userId));
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(isValidTripSummary);
+  } catch {
+    return [];
+  }
+}
+
+export function saveUserTripsIndex(userId: string, list: TripSummary[]): void {
+  if (!userId) return;
+  try {
+    window.localStorage.setItem(getUserTripsIndexKey(userId), JSON.stringify(list));
+  } catch {
+    // Ignore storage quota or private mode errors gracefully
+  }
+}
+
+export function loadUserTripState(userId: string, code: string): TripState | null {
+  if (!userId || !code) return null;
+  try {
+    const raw = window.localStorage.getItem(getUserTripStateKey(userId, code));
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (!isValidTripState(parsed)) return null;
+    return migrateTripState(parsed, code);
+  } catch {
+    return null;
+  }
+}
+
+export function saveUserTripState(userId: string, code: string, state: TripState): void {
+  if (!userId || !code) return;
+  try {
+    window.localStorage.setItem(
+      getUserTripStateKey(userId, code),
+      JSON.stringify(state)
+    );
+  } catch {
+    // Ignore storage quota or private mode errors gracefully
+  }
+}
+
+export function clearUserCachedTrips(userId?: string | null): void {
+  try {
+    const userPrefix = userId ? getUserPrefix(userId) : null;
+    const keysToRemove = new Set<string>([
+      STORAGE_KEY,
+      ...LEGACY_KEYS,
+      TRIPS_INDEX_KEY,
+      FAMILY_CODE_KEY,
+      SELECTED_DAY_KEY,
+    ]);
+
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const key = window.localStorage.key(i);
+      if (!key) continue;
+      if (
+        (userPrefix && key.startsWith(userPrefix)) ||
+        key.startsWith('londres-noel-2026:trip:') ||
+        key.startsWith('londres-noel-2026:state:') ||
+        key.startsWith('londres-noel-2026:trips:')
+      ) {
+        keysToRemove.add(key);
+      }
+    }
+
+    for (const key of keysToRemove) {
+      window.localStorage.removeItem(key);
+    }
+  } catch {
+    // Ignore storage access errors gracefully
+  }
 }
 
 export function loadFamilyCode(): string {

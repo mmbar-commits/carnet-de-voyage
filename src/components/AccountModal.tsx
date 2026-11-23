@@ -222,7 +222,7 @@ export function AccountModal() {
                 autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="mehdi@..."
+                placeholder={t.landing.emailPlaceholder}
                 className="w-full rounded-xl border border-[#ECE7DE] bg-white py-2.5 pr-3 pl-9 text-[13.5px] font-light text-[#143B2B] focus:border-[#143B2B] focus:outline-none"
               />
             </div>

@@ -1,12 +1,22 @@
 import type { RealtimeChannel, SupabaseClient } from '@supabase/supabase-js';
+import {
+  buildMonogram,
+  buildTripSummary,
+  DEFAULT_LONDON_TRIP_ID,
+} from '../data/tripFactory';
 import type {
   AuthUser,
   MemberRole,
   TripAccessRole,
   TripMember,
   TripState,
+  TripSummary,
 } from '../types/trip';
-import { isValidTripState, migrateTripState } from './storage';
+import {
+  getDefaultLondonSummary,
+  isValidTripState,
+  migrateTripState,
+} from './storage';
 
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim() || '';
 const SUPABASE_ANON_KEY =
@@ -291,6 +301,114 @@ export async function resolveTripAccess(
     role: currentTripMembership.role,
     members,
     myTrips,
+  };
+}
+
+export interface AuthorizedTripCatalogResult {
+  sqlReady: boolean;
+  memberships: { familyCode: string; role: MemberRole }[];
+  trips: TripSummary[];
+  statesByCode: Record<string, TripState>;
+}
+
+export async function fetchMyTripsCatalog(
+  authUser: AuthUser | null
+): Promise<AuthorizedTripCatalogResult> {
+  const client = await getSupabaseClient();
+  if (!client || !authUser) {
+    return { sqlReady: true, memberships: [], trips: [], statesByCode: {} };
+  }
+
+  const { data: linkedRows, error: linkErr } = await client.rpc(
+    'link_my_trip_memberships'
+  );
+
+  if (linkErr) {
+    if (isMissingSchemaError(linkErr.message)) {
+      return { sqlReady: false, memberships: [], trips: [], statesByCode: {} };
+    }
+    throw new Error(linkErr.message);
+  }
+
+  const seen = new Set<string>();
+  const memberships: { familyCode: string; role: MemberRole }[] = [];
+  if (Array.isArray(linkedRows)) {
+    for (const row of linkedRows) {
+      if (!row || typeof row.family_code !== 'string') continue;
+      const code = normalizeFamilyCode(row.family_code);
+      if (!code || seen.has(code)) continue;
+      seen.add(code);
+      memberships.push({
+        familyCode: code,
+        role: normalizeMemberRole(row.role),
+      });
+    }
+  }
+
+  if (memberships.length === 0) {
+    return { sqlReady: true, memberships: [], trips: [], statesByCode: {} };
+  }
+
+  const codes = memberships.map((m) => m.familyCode);
+  const { data: syncRows, error: syncErr } = await client
+    .from('trip_sync')
+    .select('family_code, payload, updated_at')
+    .in('family_code', codes);
+
+  if (syncErr) {
+    throw new Error(syncErr.message);
+  }
+
+  const rowByCode = new Map<string, { payload: unknown; updated_at: string }>();
+  for (const row of (syncRows ?? []) as Array<{
+    family_code: string;
+    payload: unknown;
+    updated_at: string;
+  }>) {
+    const code = normalizeFamilyCode(row.family_code);
+    if (code) {
+      rowByCode.set(code, { payload: row.payload, updated_at: row.updated_at });
+    }
+  }
+
+  const trips: TripSummary[] = [];
+  const statesByCode: Record<string, TripState> = {};
+
+  for (const membership of memberships) {
+    const code = membership.familyCode;
+    const syncRow = rowByCode.get(code);
+
+    if (syncRow && isValidTripState(syncRow.payload)) {
+      const migrated = migrateTripState(syncRow.payload, code);
+      statesByCode[code] = migrated;
+      trips.push(buildTripSummary(code, migrated, membership.role));
+    } else if (code === DEFAULT_LONDON_TRIP_ID) {
+      // Only allowed because LDN-NOEL-2026 is explicitly present in verified memberships
+      trips.push({
+        ...getDefaultLondonSummary(),
+        role: membership.role,
+      });
+    } else {
+      const mono = buildMonogram(code, '');
+      trips.push({
+        id: code,
+        title: code,
+        subtitle: code,
+        destination: code,
+        monogramTop: mono.top,
+        monogramBottom: mono.bottom,
+        startDate: '',
+        endDate: '',
+        role: membership.role,
+      });
+    }
+  }
+
+  return {
+    sqlReady: true,
+    memberships,
+    trips,
+    statesByCode,
   };
 }
 

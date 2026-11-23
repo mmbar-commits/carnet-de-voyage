@@ -40,6 +40,7 @@ export function TripsModal() {
     setTripsModalOpen,
     switchTrip,
     createNewTrip,
+    joinTripByCode,
   } = useTrip();
 
   const initialDates = defaultDates();
@@ -55,6 +56,7 @@ export function TripsModal() {
   const [busy, setBusy] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [joinCode, setJoinCode] = useState('');
+  const [joinError, setJoinError] = useState<string | null>(null);
 
   if (!tripsModalOpen) return null;
 
@@ -72,6 +74,7 @@ export function TripsModal() {
 
   const handleClose = () => {
     setErrorMsg(null);
+    setJoinError(null);
     setTripsModalOpen(false);
   };
 
@@ -79,6 +82,7 @@ export function TripsModal() {
     switchTrip(tripId);
     setShowCreateForm(false);
     setErrorMsg(null);
+    setJoinError(null);
     setTripsModalOpen(false);
   };
 
@@ -136,11 +140,16 @@ export function TripsModal() {
     }
   };
 
-  const handleJoinSubmit = (e: FormEvent) => {
+  const handleJoinSubmit = async (e: FormEvent) => {
     e.preventDefault();
     const cleaned = joinCode.trim();
     if (!cleaned) return;
-    switchTrip(cleaned);
+    setJoinError(null);
+    const res = await joinTripByCode(cleaned);
+    if (!res.ok) {
+      setJoinError(res.error || 'Error');
+      return;
+    }
     setJoinCode('');
     setShowCreateForm(false);
     setTripsModalOpen(false);
@@ -468,7 +477,7 @@ export function TripsModal() {
 
         {/* Join by code */}
         <form
-          onSubmit={handleJoinSubmit}
+          onSubmit={(e) => void handleJoinSubmit(e)}
           className="mt-5 border-t border-[#ECE7DE] pt-4"
         >
           <label
@@ -495,6 +504,11 @@ export function TripsModal() {
               {t.trips.joinBtn}
             </button>
           </div>
+          {joinError && (
+            <p className="mt-2 rounded-xl bg-[#FCF5F5] px-3 py-2 text-[11.5px] text-[#7C2D36]">
+              {joinError}
+            </p>
+          )}
         </form>
       </div>
     </div>

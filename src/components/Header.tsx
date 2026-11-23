@@ -19,6 +19,8 @@ export function Header() {
     syncStatus,
     setActiveTab,
     authUser,
+    authRequired,
+    closeActiveTrip,
     canEdit,
     previewReadOnly,
     setPreviewReadOnly,
@@ -47,8 +49,15 @@ export function Header() {
         <button
           type="button"
           id="header-trip-switcher-btn"
-          onClick={() => setTripsModalOpen(true)}
-          aria-label={t.trips.title}
+          onClick={() => {
+            if (authRequired) {
+              closeActiveTrip();
+            } else {
+              setTripsModalOpen(true);
+            }
+          }}
+          title={authRequired ? t.hub.backToTrips : t.trips.title}
+          aria-label={authRequired ? t.hub.backToTrips : t.trips.title}
           className="group flex min-w-0 items-center gap-2.5 rounded-xl text-left transition focus:outline-none"
         >
           <div

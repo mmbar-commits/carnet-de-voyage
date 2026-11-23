@@ -68,6 +68,29 @@ type SectionKey =
   | 'sync'
   | 'pwa';
 
+type DevicePlatform = 'iphone' | 'ipad' | 'android' | 'desktop';
+
+function detectDevicePlatform(): DevicePlatform {
+  if (typeof navigator === 'undefined') return 'desktop';
+  const ua = navigator.userAgent || '';
+  const isIpad =
+    /iPad/i.test(ua) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (isIpad) return 'ipad';
+  if (/iPhone|iPod/i.test(ua)) return 'iphone';
+  if (/Android/i.test(ua)) return 'android';
+  return 'desktop';
+}
+
+function isStandalonePwa(): boolean {
+  if (typeof window === 'undefined') return false;
+  const nav = window.navigator as Navigator & { standalone?: boolean };
+  return (
+    Boolean(nav.standalone) ||
+    window.matchMedia?.('(display-mode: standalone)').matches === true
+  );
+}
+
 const SUPABASE_SQL_EDITOR_URL =
   'https://supabase.com/dashboard/project/vbrbmokrgkxqmcihryns/sql/new';
 
@@ -160,6 +183,10 @@ export function InfosTab() {
   const [showSqlHelp, setShowSqlHelp] = useState(false);
   const [installPrompt, setInstallPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
+  const [devicePlatform] = useState<DevicePlatform>(() => detectDevicePlatform());
+  const [isInstalledPwa, setIsInstalledPwa] = useState<boolean>(() =>
+    isStandalonePwa()
+  );
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const supabaseReady = isSupabaseConfigured();
@@ -173,12 +200,20 @@ export function InfosTab() {
   }, [state.rates.madPerGbp, sameCurrency]);
 
   useEffect(() => {
-    const handler = (e: Event) => {
+    const handleBeforeInstall = (e: Event) => {
       e.preventDefault();
       setInstallPrompt(e as BeforeInstallPromptEvent);
     };
-    window.addEventListener('beforeinstallprompt', handler);
-    return () => window.removeEventListener('beforeinstallprompt', handler);
+    const handleAppInstalled = () => {
+      setIsInstalledPwa(true);
+      setInstallPrompt(null);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+    window.addEventListener('appinstalled', handleAppInstalled);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
   }, []);
 
   const toggleSection = (key: SectionKey) => {
@@ -1905,7 +1940,7 @@ export function InfosTab() {
           )}
         </article>
 
-        {/* 3. Installer sur Android */}
+        {/* 3. Installer l'application (adaptatif iOS / Android / Desktop / Installée) */}
         <article className="ivy-card overflow-hidden rounded-2xl">
           <button
             type="button"
@@ -1916,31 +1951,75 @@ export function InfosTab() {
             <div className="flex items-center gap-2.5">
               <Smartphone className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
               <h3 className="font-editorial text-[21px] font-normal text-[#143B2B]">
-                {t.infos.pwaTitle}
+                {isInstalledPwa
+                  ? t.infos.pwaTitleInstalled
+                  : devicePlatform === 'iphone'
+                    ? t.infos.pwaTitleIos
+                    : devicePlatform === 'ipad'
+                      ? t.infos.pwaTitleIpad
+                      : devicePlatform === 'android'
+                        ? t.infos.pwaTitleAndroid
+                        : t.infos.pwaTitle}
               </h3>
             </div>
-            {openSections.pwa ? (
-              <ChevronUp className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
-            ) : (
-              <ChevronDown className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
-            )}
+            <div className="flex items-center gap-2">
+              {isInstalledPwa && (
+                <span className="inline-flex items-center gap-1 text-[11px] font-light text-[#5F7067]">
+                  <Check className="h-3.5 w-3.5 stroke-[1.7] text-[#143B2B]" />
+                  <span>{t.infos.pwaInstalledBadge}</span>
+                </span>
+              )}
+              {openSections.pwa ? (
+                <ChevronUp className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+              ) : (
+                <ChevronDown className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+              )}
+            </div>
           </button>
 
           {openSections.pwa && (
             <div className="space-y-2.5 border-t border-[#F2EDE4] px-4 py-3.5 text-[12.5px] font-light leading-relaxed text-[#5F7067]">
-              {installPrompt && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    void installPrompt.prompt();
-                    setInstallPrompt(null);
-                  }}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#143B2B] py-2.5 text-[12.5px] font-normal text-[#FAF8F4]"
-                >
-                  {t.infos.pwaInstallBtn}
-                </button>
+              {isInstalledPwa ? (
+                <p>{t.infos.pwaInstalledGuide}</p>
+              ) : (
+                <>
+                  {installPrompt && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void installPrompt.prompt();
+                        setInstallPrompt(null);
+                      }}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#143B2B] py-2.5 text-[12.5px] font-normal text-[#FAF8F4]"
+                    >
+                      {t.infos.pwaInstallBtn}
+                    </button>
+                  )}
+                  {devicePlatform === 'iphone' || devicePlatform === 'ipad' ? (
+                    <p>{t.infos.pwaGuideIos}</p>
+                  ) : devicePlatform === 'android' ? (
+                    <p>{t.infos.pwaGuideAndroid}</p>
+                  ) : (
+                    <div className="space-y-2">
+                      <p>{t.infos.pwaGuideDesktopIntro}</p>
+                      <div className="space-y-1.5 rounded-xl border border-[#ECE7DE] bg-[#FAF8F4] px-3 py-2.5 text-[12px]">
+                        <p>
+                          <span className="font-normal text-[#143B2B]">
+                            {t.infos.pwaLabelIos} :{' '}
+                          </span>
+                          {t.infos.pwaShortIos}
+                        </p>
+                        <p>
+                          <span className="font-normal text-[#143B2B]">
+                            {t.infos.pwaLabelAndroid} :{' '}
+                          </span>
+                          {t.infos.pwaShortAndroid}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
-              <p>{t.infos.pwaGuide}</p>
             </div>
           )}
         </article>

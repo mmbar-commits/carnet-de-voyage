@@ -225,10 +225,25 @@ export const UI_TEXT = {
       resetLabel: 'Données par défaut',
       resetBtn: 'Réinitialiser',
       confirm: 'Confirmer',
-      pwaTitle: 'Installer sur Android',
-      pwaInstallBtn: 'Installer LDN 26',
-      pwaGuide:
-        'Dans Chrome Android : touchez ⋮ puis Installer l’application. L’app reste 100 % accessible hors-ligne dans le métro.',
+      pwaTitle: 'Installer l’application',
+      pwaTitleAndroid: 'Installer sur Android',
+      pwaTitleIos: 'Installer sur iPhone',
+      pwaTitleIpad: 'Installer sur iPad',
+      pwaTitleInstalled: 'Application installée',
+      pwaInstalledBadge: 'Hors-ligne',
+      pwaInstalledGuide:
+        'L’application est installée sur votre écran d’accueil et reste 100 % accessible hors-ligne, même sans réseau.',
+      pwaInstallBtn: 'Installer l’application',
+      pwaGuideAndroid:
+        'Dans Chrome Android : touchez ⋮ en haut à droite, puis « Installer l’application ». Elle reste 100 % accessible hors-ligne, même sans réseau.',
+      pwaGuideIos:
+        'Dans Safari : touchez le bouton Partager (⬆︎ en bas de l’écran), faites défiler puis choisissez « Sur l’écran d’accueil ». Elle reste 100 % accessible hors-ligne.',
+      pwaGuideDesktopIntro:
+        'Ajoutez l’application sur l’écran d’accueil de vos téléphones pour y accéder hors-ligne :',
+      pwaLabelIos: 'iPhone / iPad (Safari)',
+      pwaLabelAndroid: 'Android (Chrome)',
+      pwaShortIos: 'Touchez Partager (⬆︎) → « Sur l’écran d’accueil ».',
+      pwaShortAndroid: 'Touchez ⋮ → « Installer l’application ».',
     },
     trips: {
       eyebrow: 'Mes voyages',
@@ -485,10 +500,25 @@ export const UI_TEXT = {
       resetLabel: 'Default trip data',
       resetBtn: 'Reset',
       confirm: 'Confirm',
-      pwaTitle: 'Install on Android',
-      pwaInstallBtn: 'Install LDN 26',
-      pwaGuide:
-        'In Chrome Android: tap ⋮ then Install app. Works 100% offline in the London Underground.',
+      pwaTitle: 'Install app',
+      pwaTitleAndroid: 'Install on Android',
+      pwaTitleIos: 'Install on iPhone',
+      pwaTitleIpad: 'Install on iPad',
+      pwaTitleInstalled: 'App installed',
+      pwaInstalledBadge: 'Offline ready',
+      pwaInstalledGuide:
+        'The app is installed on your home screen and works 100% offline, even without signal.',
+      pwaInstallBtn: 'Install app',
+      pwaGuideAndroid:
+        'In Chrome Android: tap ⋮ at the top right, then "Install app". Works 100% offline, even without signal.',
+      pwaGuideIos:
+        'In Safari: tap the Share button (⬆︎ at the bottom of the screen), scroll down and choose "Add to Home Screen". Works 100% offline.',
+      pwaGuideDesktopIntro:
+        'Add the app to your phone home screen for instant offline access:',
+      pwaLabelIos: 'iPhone / iPad (Safari)',
+      pwaLabelAndroid: 'Android (Chrome)',
+      pwaShortIos: 'Tap Share (⬆︎) → "Add to Home Screen".',
+      pwaShortAndroid: 'Tap ⋮ → "Install app".',
     },
     trips: {
       eyebrow: 'My trips',

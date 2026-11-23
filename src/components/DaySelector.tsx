@@ -4,7 +4,7 @@ import { getDayLabel } from '../i18n/translations';
 import { useTrip } from '../store/TripContext';
 
 export function DaySelector() {
-  const { lang, selectedDayId, setSelectedDayId, state } = useTrip();
+  const { lang, selectedDayId, setSelectedDayId, state, canEdit } = useTrip();
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const buttonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
@@ -20,7 +20,11 @@ export function DaySelector() {
   }, [selectedDayId]);
 
   return (
-    <div className="sticky top-[57px] z-20 -mx-5 border-b border-[#ECE7DE]/90 bg-[#FAF8F4]/95 px-5 py-2.5 backdrop-blur-md">
+    <div
+      className={`sticky z-20 -mx-5 border-b border-[#ECE7DE]/90 bg-[#FAF8F4]/95 px-5 py-2.5 backdrop-blur-md ${
+        canEdit ? 'top-[57px]' : 'top-[88px]'
+      }`}
+    >
       <div
         ref={scrollRef}
         id="day-selector-strip"

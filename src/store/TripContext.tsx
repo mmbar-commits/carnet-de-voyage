@@ -10,14 +10,18 @@ import {
 } from 'react';
 import { TRIP_DAYS } from '../data/days';
 import type {
+  AuthUser,
   BonusActivity,
   BookingStatus,
   ChecklistItem,
   ExchangeRates,
   Expense,
   Language,
+  MemberRole,
   SyncStatus,
   TabId,
+  TripAccessRole,
+  TripMember,
   TripState,
   TripStep,
 } from '../types/trip';
@@ -36,11 +40,22 @@ import {
   STATE_VERSION,
 } from './storage';
 import {
+  claimTripAsEditor,
+  deleteTripMember,
+  getCurrentAuthUser,
+  inviteOrUpdateMember,
   isSupabaseConfigured,
   normalizeFamilyCode,
   pullRemoteState,
   pushRemoteState,
+  resolveTripAccess,
+  signInWithMagicLink,
+  signInWithPassword,
+  signOutAuth,
+  signUpWithPassword,
+  subscribeAuthState,
   subscribeToFamilySync,
+  updateTripMemberRole,
 } from './sync';
 
 const BOOKING_CYCLE: BookingStatus[] = [
@@ -65,6 +80,32 @@ interface TripContextValue {
   setSelectedDayId: (dayId: string) => void;
   navigateToDay: (dayId: string, tab?: TabId) => void;
 
+  // Option A — Accounts & Roles
+  authUser: AuthUser | null;
+  authLoading: boolean;
+  tripRole: TripAccessRole;
+  tripMembers: TripMember[];
+  membersSqlReady: boolean;
+  canEdit: boolean;
+  canViewBudget: boolean;
+  previewReadOnly: boolean;
+  setPreviewReadOnly: (enabled: boolean) => void;
+  setHideBudgetForViewers: (hide: boolean) => void;
+  accountModalOpen: boolean;
+  setAccountModalOpen: (open: boolean) => void;
+  signIn: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
+  signUp: (
+    email: string,
+    password: string
+  ) => Promise<{ ok: boolean; needsConfirmation?: boolean; error?: string }>;
+  sendMagicLink: (email: string) => Promise<{ ok: boolean; error?: string }>;
+  signOut: () => Promise<void>;
+  claimCurrentTrip: () => Promise<{ ok: boolean; error?: string }>;
+  inviteMember: (email: string, role: MemberRole) => Promise<{ ok: boolean; error?: string }>;
+  changeMemberRole: (memberId: string, role: MemberRole) => Promise<{ ok: boolean; error?: string }>;
+  removeMember: (memberId: string) => Promise<{ ok: boolean; error?: string }>;
+  refreshAccess: () => Promise<void>;
+
   // Planning
   toggleStepDone: (stepId: string) => void;
   cycleStepBookingStatus: (stepId: string) => void;
@@ -81,7 +122,7 @@ interface TripContextValue {
   // Carnet
   updateMemory: (dayId: string, note: string) => void;
 
-  // Budget & People
+  // Budget & Voyageurs
   toggleExpensePaid: (expenseId: string) => void;
   addExpense: (expense: Omit<Expense, 'id'>) => void;
   updateExpense: (expenseId: string, patch: Partial<Omit<Expense, 'id'>>) => void;
@@ -117,10 +158,93 @@ export function TripProvider({ children }: { children: ReactNode }) {
     familyCode: loadFamilyCode(),
   }));
 
+  // Option A — Auth & role access state
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [authLoading, setAuthLoading] = useState<boolean>(() => isSupabaseConfigured());
+  const [tripRole, setTripRole] = useState<TripAccessRole>('unclaimed');
+  const [tripMembers, setTripMembers] = useState<TripMember[]>([]);
+  const [membersSqlReady, setMembersSqlReady] = useState<boolean>(true);
+  const [previewReadOnly, setPreviewReadOnly] = useState<boolean>(false);
+  const [accountModalOpen, setAccountModalOpen] = useState<boolean>(false);
+
+  const isActualReadOnly = tripRole === 'viewer' || tripRole === 'none';
+  const canEdit = !isActualReadOnly && !previewReadOnly;
+  const canViewBudget = canEdit || !state.hideBudgetForViewers;
+
   const applyingRemoteRef = useRef(false);
   const pushTimeoutRef = useRef<number | null>(null);
   const stateRef = useRef(state);
   stateRef.current = state;
+  const canEditRef = useRef(canEdit);
+  canEditRef.current = canEdit;
+
+  // Keep budget tab inaccessible when hidden for viewers
+  useEffect(() => {
+    if (!canViewBudget && activeTab === 'budget') {
+      setActiveTab('planning');
+    }
+  }, [canViewBudget, activeTab]);
+
+  // Subscribe to Supabase Auth session
+  useEffect(() => {
+    if (!isSupabaseConfigured()) {
+      setAuthLoading(false);
+      return;
+    }
+
+    let mounted = true;
+    void getCurrentAuthUser().then((user) => {
+      if (!mounted) return;
+      setAuthUser(user);
+      setAuthLoading(false);
+    });
+
+    const unsub = subscribeAuthState((nextUser) => {
+      if (!mounted) return;
+      setAuthUser(nextUser);
+      setAuthLoading(false);
+    });
+
+    return () => {
+      mounted = false;
+      unsub();
+    };
+  }, []);
+
+  const refreshAccess = useCallback(async () => {
+    if (!isSupabaseConfigured() || !familyCode) {
+      setTripRole('unclaimed');
+      setTripMembers([]);
+      setMembersSqlReady(true);
+      return;
+    }
+    try {
+      const res = await resolveTripAccess(familyCode, authUser);
+      setMembersSqlReady(res.sqlReady);
+      setTripRole(res.role);
+      setTripMembers(res.members);
+
+      // If user signed in and was invited to a trip different from current familyCode, switch automatically
+      if (
+        authUser &&
+        res.sqlReady &&
+        (res.role === 'none' || res.role === 'unclaimed') &&
+        res.myTrips.length > 0 &&
+        res.myTrips[0].familyCode !== familyCode
+      ) {
+        const invitedCode = res.myTrips[0].familyCode;
+        setFamilyCodeState(invitedCode);
+        saveFamilyCode(invitedCode);
+      }
+    } catch {
+      // Keep current role state gracefully if offline
+    }
+  }, [familyCode, authUser]);
+
+  useEffect(() => {
+    if (authLoading) return;
+    void refreshAccess();
+  }, [authLoading, refreshAccess]);
 
   const setLang = useCallback((nextLang: Language) => {
     setLangState(nextLang);
@@ -141,13 +265,14 @@ export function TripProvider({ children }: { children: ReactNode }) {
     [setSelectedDayId]
   );
 
-  // Persist to localStorage + debounced optional Supabase push
+  // Persist to localStorage + debounced optional Supabase push (only when canEdit)
   useEffect(() => {
     saveTripState(state);
 
     if (
       !isSupabaseConfigured() ||
       !familyCode ||
+      !canEditRef.current ||
       applyingRemoteRef.current ||
       state.updatedAt === DEFAULT_UPDATED_AT
     ) {
@@ -160,6 +285,7 @@ export function TripProvider({ children }: { children: ReactNode }) {
     }
 
     pushTimeoutRef.current = window.setTimeout(() => {
+      if (!canEditRef.current) return;
       setSyncStatus((prev) => ({ ...prev, mode: 'syncing', errorMessage: undefined }));
       pushRemoteState(familyCode, stateRef.current)
         .then(() => {
@@ -185,7 +311,7 @@ export function TripProvider({ children }: { children: ReactNode }) {
     };
   }, [state, familyCode]);
 
-  // Subscribe to Supabase Realtime if configured
+  // Subscribe to Supabase Realtime if configured (re-runs on authUser change to attach JWT)
   useEffect(() => {
     if (!isSupabaseConfigured() || !familyCode) {
       setSyncStatus({ mode: 'local', familyCode });
@@ -202,7 +328,11 @@ export function TripProvider({ children }: { children: ReactNode }) {
           if (remote && remote.updatedAt > stateRef.current.updatedAt) {
             applyingRemoteRef.current = true;
             setState(remote);
-          } else if (!remote && stateRef.current.updatedAt !== DEFAULT_UPDATED_AT) {
+          } else if (
+            !remote &&
+            canEditRef.current &&
+            stateRef.current.updatedAt !== DEFAULT_UPDATED_AT
+          ) {
             await pushRemoteState(familyCode, stateRef.current);
           }
           setSyncStatus({
@@ -252,9 +382,10 @@ export function TripProvider({ children }: { children: ReactNode }) {
       window.removeEventListener('online', handleOnline);
       unsubscribe();
     };
-  }, [familyCode]);
+  }, [familyCode, authUser?.id]);
 
   const mutate = useCallback((updater: (prev: TripState) => TripState) => {
+    if (!canEditRef.current) return;
     setState((prev) => {
       const next = updater(prev);
       return {
@@ -264,6 +395,103 @@ export function TripProvider({ children }: { children: ReactNode }) {
       };
     });
   }, []);
+
+  const setHideBudgetForViewers = useCallback(
+    (hide: boolean) => {
+      mutate((prev) => ({ ...prev, hideBudgetForViewers: hide }));
+    },
+    [mutate]
+  );
+
+  const signIn = useCallback(async (email: string, password: string) => {
+    const res = await signInWithPassword(email, password);
+    if (res.error) return { ok: false, error: res.error };
+    setAuthUser(res.user);
+    return { ok: true };
+  }, []);
+
+  const signUp = useCallback(async (email: string, password: string) => {
+    const res = await signUpWithPassword(email, password);
+    if (res.error) return { ok: false, error: res.error };
+    if (res.user && !res.needsConfirmation) {
+      setAuthUser(res.user);
+    }
+    return { ok: true, needsConfirmation: res.needsConfirmation };
+  }, []);
+
+  const sendMagicLink = useCallback(async (email: string) => {
+    return signInWithMagicLink(email);
+  }, []);
+
+  const signOut = useCallback(async () => {
+    await signOutAuth();
+    setAuthUser(null);
+    setPreviewReadOnly(false);
+  }, []);
+
+  const claimCurrentTrip = useCallback(async () => {
+    try {
+      const role = await claimTripAsEditor(familyCode);
+      await refreshAccess();
+      if (role === 'editor' && stateRef.current.updatedAt !== DEFAULT_UPDATED_AT) {
+        await pushRemoteState(familyCode, stateRef.current);
+      }
+      return { ok: true };
+    } catch (err: unknown) {
+      return {
+        ok: false,
+        error: err instanceof Error ? err.message : 'Erreur lors de la protection',
+      };
+    }
+  }, [familyCode, refreshAccess]);
+
+  const inviteMember = useCallback(
+    async (email: string, role: MemberRole) => {
+      try {
+        await inviteOrUpdateMember(familyCode, email, role);
+        await refreshAccess();
+        return { ok: true };
+      } catch (err: unknown) {
+        return {
+          ok: false,
+          error: err instanceof Error ? err.message : 'Erreur lors de l’invitation',
+        };
+      }
+    },
+    [familyCode, refreshAccess]
+  );
+
+  const changeMemberRole = useCallback(
+    async (memberId: string, role: MemberRole) => {
+      try {
+        await updateTripMemberRole(memberId, role);
+        await refreshAccess();
+        return { ok: true };
+      } catch (err: unknown) {
+        return {
+          ok: false,
+          error: err instanceof Error ? err.message : 'Erreur lors de la mise à jour',
+        };
+      }
+    },
+    [refreshAccess]
+  );
+
+  const removeMember = useCallback(
+    async (memberId: string) => {
+      try {
+        await deleteTripMember(memberId);
+        await refreshAccess();
+        return { ok: true };
+      } catch (err: unknown) {
+        return {
+          ok: false,
+          error: err instanceof Error ? err.message : 'Erreur lors de la suppression',
+        };
+      }
+    },
+    [refreshAccess]
+  );
 
   const toggleStepDone = useCallback(
     (stepId: string) => {
@@ -640,11 +868,12 @@ export function TripProvider({ children }: { children: ReactNode }) {
 
     setSyncStatus({ mode: 'syncing', familyCode });
     try {
+      await refreshAccess();
       const remote = await pullRemoteState(familyCode);
       if (remote && remote.updatedAt > stateRef.current.updatedAt) {
         applyingRemoteRef.current = true;
         setState(remote);
-      } else {
+      } else if (canEditRef.current) {
         await pushRemoteState(familyCode, stateRef.current);
       }
       setSyncStatus({
@@ -659,13 +888,16 @@ export function TripProvider({ children }: { children: ReactNode }) {
         errorMessage: err instanceof Error ? err.message : 'Erreur de synchronisation',
       });
     }
-  }, [familyCode]);
+  }, [familyCode, refreshAccess]);
 
   const exportTripJson = useCallback(() => {
     return JSON.stringify(stateRef.current, null, 2);
   }, []);
 
   const importTripJson = useCallback((raw: string): { ok: boolean; error?: string } => {
+    if (!canEditRef.current) {
+      return { ok: false, error: 'Mode lecture seule actif.' };
+    }
     try {
       const parsed: unknown = JSON.parse(raw);
       if (!isValidTripState(parsed)) {
@@ -686,6 +918,7 @@ export function TripProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const resetTripState = useCallback(() => {
+    if (!canEditRef.current) return;
     const fresh = createDefaultState();
     setState(fresh);
     saveTripState(fresh);
@@ -702,6 +935,27 @@ export function TripProvider({ children }: { children: ReactNode }) {
       setActiveTab,
       setSelectedDayId,
       navigateToDay,
+      authUser,
+      authLoading,
+      tripRole,
+      tripMembers,
+      membersSqlReady,
+      canEdit,
+      canViewBudget,
+      previewReadOnly,
+      setPreviewReadOnly,
+      setHideBudgetForViewers,
+      accountModalOpen,
+      setAccountModalOpen,
+      signIn,
+      signUp,
+      sendMagicLink,
+      signOut,
+      claimCurrentTrip,
+      inviteMember,
+      changeMemberRole,
+      removeMember,
+      refreshAccess,
       toggleStepDone,
       cycleStepBookingStatus,
       setStepBookingStatus,
@@ -737,6 +991,25 @@ export function TripProvider({ children }: { children: ReactNode }) {
       setLang,
       setSelectedDayId,
       navigateToDay,
+      authUser,
+      authLoading,
+      tripRole,
+      tripMembers,
+      membersSqlReady,
+      canEdit,
+      canViewBudget,
+      previewReadOnly,
+      setHideBudgetForViewers,
+      accountModalOpen,
+      signIn,
+      signUp,
+      sendMagicLink,
+      signOut,
+      claimCurrentTrip,
+      inviteMember,
+      changeMemberRole,
+      removeMember,
+      refreshAccess,
       toggleStepDone,
       cycleStepBookingStatus,
       setStepBookingStatus,

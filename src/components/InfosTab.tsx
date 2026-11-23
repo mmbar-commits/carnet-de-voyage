@@ -9,12 +9,16 @@ import {
   Copy,
   Download,
   ExternalLink,
+  Eye,
   Home,
+  LogIn,
+  LogOut,
   Plane,
   Plus,
   RefreshCw,
   RotateCcw,
   Share2,
+  Shield,
   Smartphone,
   Square,
   Trash2,
@@ -24,13 +28,14 @@ import {
 import {
   ACCOMMODATION_INFO,
   FLIGHT_INFO,
+  SUPABASE_AUTH_SQL_SNIPPET,
   SUPABASE_SQL_SNIPPET,
   TOWER_HAMLETS_MEMO,
 } from '../data/infos';
 import { UI_TEXT } from '../i18n/translations';
 import { useTrip } from '../store/TripContext';
 import { isSupabaseConfigured } from '../store/sync';
-import type { ChecklistItem } from '../types/trip';
+import type { ChecklistItem, MemberRole } from '../types/trip';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -42,16 +47,34 @@ type SectionKey =
   | 'home'
   | 'th'
   | 'checklist'
+  | 'account'
   | 'people'
   | 'sync'
   | 'share'
   | 'pwa';
+
+const SUPABASE_SQL_EDITOR_URL =
+  'https://supabase.com/dashboard/project/vbrbmokrgkxqmcihryns/sql/new';
 
 export function InfosTab() {
   const {
     lang,
     state,
     syncStatus,
+    authUser,
+    tripRole,
+    tripMembers,
+    membersSqlReady,
+    canEdit,
+    previewReadOnly,
+    setPreviewReadOnly,
+    setHideBudgetForViewers,
+    setAccountModalOpen,
+    signOut,
+    claimCurrentTrip,
+    inviteMember,
+    changeMemberRole,
+    removeMember,
     toggleChecklistItem,
     addChecklistItem,
     deleteChecklistItem,
@@ -72,6 +95,7 @@ export function InfosTab() {
     home: false,
     th: false,
     checklist: false,
+    account: false,
     people: false,
     sync: false,
     share: false,
@@ -81,8 +105,13 @@ export function InfosTab() {
   const [copiedAddress, setCopiedAddress] = useState(false);
   const [copiedWhatsapp, setCopiedWhatsapp] = useState(false);
   const [copiedSql, setCopiedSql] = useState(false);
+  const [copiedAuthSql, setCopiedAuthSql] = useState(false);
   const [newCheckLabel, setNewCheckLabel] = useState('');
   const [newPersonName, setNewPersonName] = useState('');
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState<MemberRole>('viewer');
+  const [accountActionBusy, setAccountActionBusy] = useState(false);
+  const [accountFeedback, setAccountFeedback] = useState<string | null>(null);
   const [familyInput, setFamilyInput] = useState(syncStatus.familyCode);
   const [importFeedback, setImportFeedback] = useState<string | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
@@ -92,6 +121,10 @@ export function InfosTab() {
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const supabaseReady = isSupabaseConfigured();
+
+  useEffect(() => {
+    setFamilyInput(syncStatus.familyCode);
+  }, [syncStatus.familyCode]);
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -161,17 +194,59 @@ export function InfosTab() {
 
   const handleChecklistSubmit = (e: FormEvent) => {
     e.preventDefault();
-    if (!newCheckLabel.trim()) return;
+    if (!canEdit || !newCheckLabel.trim()) return;
     addChecklistItem(newCheckLabel, 'bagages' as ChecklistItem['category']);
     setNewCheckLabel('');
   };
 
   const handlePersonSubmit = (e: FormEvent) => {
     e.preventDefault();
-    if (!newPersonName.trim()) return;
+    if (!canEdit || !newPersonName.trim()) return;
     addPerson(newPersonName);
     setNewPersonName('');
   };
+
+  const handleClaimTrip = async () => {
+    setAccountFeedback(null);
+    setAccountActionBusy(true);
+    try {
+      const res = await claimCurrentTrip();
+      if (!res.ok) setAccountFeedback(res.error || 'Error');
+    } finally {
+      setAccountActionBusy(false);
+    }
+  };
+
+  const handleInviteSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!inviteEmail.trim()) return;
+    setAccountFeedback(null);
+    setAccountActionBusy(true);
+    try {
+      const res = await inviteMember(inviteEmail, inviteRole);
+      if (!res.ok) {
+        setAccountFeedback(res.error || 'Error');
+      } else {
+        setInviteEmail('');
+      }
+    } finally {
+      setAccountActionBusy(false);
+    }
+  };
+
+  const editorCount = tripMembers.filter((m) => m.role === 'editor').length;
+
+  const accountBadge = !authUser
+    ? tripRole === 'none'
+      ? t.auth.noAccessBadge
+      : t.auth.signedOut
+    : tripRole === 'editor'
+      ? t.auth.editorRole
+      : tripRole === 'viewer'
+        ? t.auth.viewerRole
+        : tripRole === 'none'
+          ? t.auth.noAccessBadge
+          : t.auth.unclaimedBadge;
 
   const checkedCount = state.checklist.filter((c) => c.checked).length;
 
@@ -404,8 +479,9 @@ export function InfosTab() {
                   >
                     <button
                       type="button"
+                      disabled={!canEdit}
                       onClick={() => toggleChecklistItem(item.id)}
-                      className="flex min-w-0 flex-1 items-start gap-2.5 text-left"
+                      className="flex min-w-0 flex-1 items-start gap-2.5 text-left disabled:cursor-default"
                     >
                       {item.checked ? (
                         <CheckSquare className="mt-0.5 h-4 w-4 shrink-0 stroke-[1.6] text-[#143B2B]" />
@@ -420,34 +496,38 @@ export function InfosTab() {
                         {item.label}
                       </span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => deleteChecklistItem(item.id)}
-                      aria-label={t.delete}
-                      className="p-0.5 text-[#5F7067]/50 hover:text-[#7C2D36]"
-                    >
-                      <Trash2 className="h-3.5 w-3.5 stroke-[1.5]" />
-                    </button>
+                    {canEdit && (
+                      <button
+                        type="button"
+                        onClick={() => deleteChecklistItem(item.id)}
+                        aria-label={t.delete}
+                        className="p-0.5 text-[#5F7067]/50 hover:text-[#7C2D36]"
+                      >
+                        <Trash2 className="h-3.5 w-3.5 stroke-[1.5]" />
+                      </button>
+                    )}
                   </li>
                 ))}
               </ul>
 
-              <form onSubmit={handleChecklistSubmit} className="mt-2.5 flex gap-2">
-                <input
-                  type="text"
-                  value={newCheckLabel}
-                  onChange={(e) => setNewCheckLabel(e.target.value)}
-                  placeholder={t.infos.checklistPlaceholder}
-                  className="min-w-0 flex-1 rounded-xl border border-[#ECE7DE] bg-[#FAF8F4] px-3 py-2 text-[12.5px] font-light text-[#143B2B] focus:border-[#143B2B] focus:outline-none"
-                />
-                <button
-                  type="submit"
-                  aria-label={t.add}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#143B2B] text-[#FAF8F4]"
-                >
-                  <Plus className="h-4 w-4 stroke-[1.6]" />
-                </button>
-              </form>
+              {canEdit && (
+                <form onSubmit={handleChecklistSubmit} className="mt-2.5 flex gap-2">
+                  <input
+                    type="text"
+                    value={newCheckLabel}
+                    onChange={(e) => setNewCheckLabel(e.target.value)}
+                    placeholder={t.infos.checklistPlaceholder}
+                    className="min-w-0 flex-1 rounded-xl border border-[#ECE7DE] bg-[#FAF8F4] px-3 py-2 text-[12.5px] font-light text-[#143B2B] focus:border-[#143B2B] focus:outline-none"
+                  />
+                  <button
+                    type="submit"
+                    aria-label={t.add}
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#143B2B] text-[#FAF8F4]"
+                  >
+                    <Plus className="h-4 w-4 stroke-[1.6]" />
+                  </button>
+                </form>
+              )}
             </div>
           )}
         </article>
@@ -466,7 +546,312 @@ export function InfosTab() {
           </h2>
         </div>
 
-        {/* 1. Personnes (pour Budget -> Par personne) */}
+        {/* 1. Compte & Accès (Option A — Supabase Auth + Rôles RLS) */}
+        {supabaseReady && (
+          <article className="ivy-card overflow-hidden rounded-2xl">
+            <button
+              type="button"
+              id="infos-toggle-account"
+              onClick={() => toggleSection('account')}
+              className="flex w-full items-center justify-between gap-2 px-4 py-3.5 text-left"
+            >
+              <div className="flex items-center gap-2.5">
+                <Shield className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+                <h3 className="font-editorial text-[21px] font-normal text-[#143B2B]">
+                  {t.auth.sectionTitle}
+                </h3>
+              </div>
+              <div className="flex items-center gap-2">
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[10.5px] font-normal ${
+                    tripRole === 'editor'
+                      ? 'bg-[#143B2B] text-[#FAF8F4]'
+                      : tripRole === 'viewer'
+                        ? 'bg-[#F8F3E9] text-[#83662F]'
+                        : 'text-[#5F7067]'
+                  }`}
+                >
+                  {accountBadge}
+                </span>
+                {openSections.account ? (
+                  <ChevronUp className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+                )}
+              </div>
+            </button>
+
+            {openSections.account && (
+              <div className="space-y-3.5 border-t border-[#F2EDE4] px-4 py-3.5 text-[12.5px] font-light text-[#5F7067]">
+                {!authUser ? (
+                  <>
+                    <p className="leading-relaxed">
+                      {tripRole === 'none'
+                        ? t.auth.noAccessDesc
+                        : t.auth.accountDescSignedOut}
+                    </p>
+                    <button
+                      type="button"
+                      id="infos-open-login-btn"
+                      onClick={() => setAccountModalOpen(true)}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#143B2B] py-2.5 text-[12.5px] font-normal text-[#FAF8F4]"
+                    >
+                      <LogIn className="h-3.5 w-3.5 text-[#D7BD8A]" />
+                      <span>{t.auth.signInBtn}</span>
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    {/* Connected user header */}
+                    <div className="flex items-center justify-between gap-2 rounded-xl border border-[#ECE7DE] bg-[#FAF8F4] px-3 py-2.5">
+                      <div className="min-w-0">
+                        <p className="truncate text-[12.5px] font-normal text-[#143B2B]">
+                          {authUser.email}
+                        </p>
+                        <p className="text-[11px] font-light text-[#83662F]">
+                          {accountBadge} · {syncStatus.familyCode}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        id="infos-signout-btn"
+                        onClick={() => void signOut()}
+                        className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-[#ECE7DE] bg-white px-2.5 py-1.5 text-[11px] font-normal text-[#143B2B]"
+                      >
+                        <LogOut className="h-3 w-3 stroke-[1.5] text-[#B39258]" />
+                        <span>{t.auth.signOutBtn}</span>
+                      </button>
+                    </div>
+
+                    {/* Case 1: Option A SQL migration not executed yet */}
+                    {!membersSqlReady && (
+                      <div className="space-y-2 rounded-xl border border-[#E2D6BE] bg-[#F8F3E9] p-3 text-[#143B2B]">
+                        <p className="text-[12px] font-medium">{t.auth.sqlPendingTitle}</p>
+                        <p className="text-[11.5px] font-light leading-relaxed text-[#5F7067]">
+                          {t.auth.sqlPendingDesc}
+                        </p>
+                        <div className="flex flex-wrap gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void copyText(SUPABASE_AUTH_SQL_SNIPPET, () => {
+                                setCopiedAuthSql(true);
+                                window.setTimeout(() => setCopiedAuthSql(false), 2000);
+                              })
+                            }
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-[#143B2B] px-3 py-1.5 text-[11.5px] font-normal text-[#FAF8F4]"
+                          >
+                            {copiedAuthSql ? (
+                              <Check className="h-3.5 w-3.5 text-[#D7BD8A]" />
+                            ) : (
+                              <Copy className="h-3.5 w-3.5 text-[#D7BD8A]" />
+                            )}
+                            <span>
+                              {copiedAuthSql ? t.infos.copied : t.auth.copyAuthSql}
+                            </span>
+                          </button>
+                          <a
+                            href={SUPABASE_SQL_EDITOR_URL}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 rounded-lg border border-[#D8CEBC] bg-white px-3 py-1.5 text-[11.5px] font-normal text-[#143B2B]"
+                          >
+                            <span>{t.auth.openSqlEditor}</span>
+                            <ExternalLink className="h-3 w-3 text-[#B39258]" />
+                          </a>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Case 2: SQL ready, trip unclaimed */}
+                    {membersSqlReady && tripRole === 'unclaimed' && (
+                      <div className="space-y-2 rounded-xl border border-[#E2D6BE] bg-[#F8F3E9] p-3">
+                        <p className="text-[12px] font-medium text-[#143B2B]">
+                          {t.auth.claimTripTitle}
+                        </p>
+                        <p className="text-[11.5px] font-light leading-relaxed text-[#5F7067]">
+                          {t.auth.claimTripDesc}
+                        </p>
+                        <button
+                          type="button"
+                          id="claim-trip-btn"
+                          disabled={accountActionBusy}
+                          onClick={() => void handleClaimTrip()}
+                          className="mt-1 inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#143B2B] py-2 text-[12px] font-normal text-[#FAF8F4] disabled:opacity-50"
+                        >
+                          <Shield className="h-3.5 w-3.5 text-[#D7BD8A]" />
+                          <span>{t.auth.claimTripBtn}</span>
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Case 3: Trip protected, signed-in user not invited */}
+                    {membersSqlReady && tripRole === 'none' && (
+                      <p className="rounded-xl bg-[#FCF5F5] px-3 py-2.5 text-[12px] text-[#7C2D36]">
+                        {t.auth.noAccessDesc}
+                      </p>
+                    )}
+
+                    {/* Case 4: Editor management panel */}
+                    {membersSqlReady && tripRole === 'editor' && (
+                      <div className="space-y-3">
+                        <p className="text-[11px] font-normal uppercase tracking-wider text-[#8F7038]">
+                          {t.auth.membersHeading} ({tripMembers.length})
+                        </p>
+
+                        <ul className="divide-y divide-[#F2EDE4] rounded-xl border border-[#ECE7DE] bg-[#FDFCF9] px-3">
+                          {tripMembers.map((member) => {
+                            const isSelfLastEditor =
+                              member.role === 'editor' && editorCount <= 1;
+                            return (
+                              <li
+                                key={member.id}
+                                className="flex items-center justify-between gap-2 py-2.5"
+                              >
+                                <div className="min-w-0">
+                                  <p className="truncate text-[12.5px] font-normal text-[#143B2B]">
+                                    {member.email}
+                                  </p>
+                                  <p className="text-[10.5px] font-light text-[#5F7067]">
+                                    {member.userId
+                                      ? t.auth.activeStatus
+                                      : t.auth.pendingStatus}
+                                  </p>
+                                </div>
+
+                                <div className="flex shrink-0 items-center gap-1.5">
+                                  <select
+                                    aria-label={`Role for ${member.email}`}
+                                    value={member.role}
+                                    disabled={isSelfLastEditor}
+                                    onChange={(e) =>
+                                      void changeMemberRole(
+                                        member.id,
+                                        e.target.value as MemberRole
+                                      )
+                                    }
+                                    className="rounded-lg border border-[#ECE7DE] bg-white px-2 py-1 text-[11px] font-normal text-[#143B2B] disabled:opacity-50"
+                                  >
+                                    <option value="editor">{t.auth.editorRole}</option>
+                                    <option value="viewer">{t.auth.viewerRole}</option>
+                                  </select>
+                                  {!isSelfLastEditor && (
+                                    <button
+                                      type="button"
+                                      onClick={() => void removeMember(member.id)}
+                                      aria-label={t.delete}
+                                      className="p-1 text-[#5F7067]/60 hover:text-[#7C2D36]"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5 stroke-[1.5]" />
+                                    </button>
+                                  )}
+                                </div>
+                              </li>
+                            );
+                          })}
+                        </ul>
+
+                        {/* Invite new member */}
+                        <form
+                          onSubmit={(e) => void handleInviteSubmit(e)}
+                          className="space-y-2"
+                        >
+                          <div className="flex gap-1.5">
+                            <input
+                              id="invite-member-email"
+                              type="email"
+                              required
+                              value={inviteEmail}
+                              onChange={(e) => setInviteEmail(e.target.value)}
+                              placeholder={t.auth.invitePlaceholder}
+                              className="min-w-0 flex-1 rounded-xl border border-[#ECE7DE] bg-[#FAF8F4] px-3 py-2 text-[12px] font-light text-[#143B2B] focus:border-[#143B2B] focus:outline-none"
+                            />
+                            <select
+                              id="invite-member-role"
+                              value={inviteRole}
+                              onChange={(e) =>
+                                setInviteRole(e.target.value as MemberRole)
+                              }
+                              className="rounded-xl border border-[#ECE7DE] bg-white px-2 py-2 text-[11.5px] font-normal text-[#143B2B]"
+                            >
+                              <option value="viewer">{t.auth.viewerRole}</option>
+                              <option value="editor">{t.auth.editorRole}</option>
+                            </select>
+                            <button
+                              id="invite-member-submit"
+                              type="submit"
+                              disabled={accountActionBusy}
+                              aria-label={t.auth.inviteBtn}
+                              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#143B2B] text-[#FAF8F4] disabled:opacity-50"
+                            >
+                              <Plus className="h-4 w-4 stroke-[1.6]" />
+                            </button>
+                          </div>
+                        </form>
+
+                        {/* Hide Budget for viewers option */}
+                        <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-[#ECE7DE] bg-[#FAF8F4] px-3 py-2.5">
+                          <div className="min-w-0">
+                            <p className="text-[12px] font-normal text-[#143B2B]">
+                              {t.auth.hideBudgetToggle}
+                            </p>
+                            <p className="text-[11px] font-light text-[#5F7067]">
+                              {t.auth.hideBudgetDesc}
+                            </p>
+                          </div>
+                          <input
+                            id="hide-budget-viewers-checkbox"
+                            type="checkbox"
+                            checked={Boolean(state.hideBudgetForViewers)}
+                            onChange={(e) =>
+                              setHideBudgetForViewers(e.target.checked)
+                            }
+                            className="h-4 w-4 accent-[#143B2B]"
+                          />
+                        </label>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* Preview read-only mode toggle (available to editors & unclaimed trips) */}
+                {tripRole !== 'viewer' && tripRole !== 'none' && (
+                  <div className="flex items-center justify-between gap-3 border-t border-[#F2EDE4] pt-3">
+                    <div className="min-w-0">
+                      <p className="flex items-center gap-1.5 text-[12px] font-normal text-[#143B2B]">
+                        <Eye className="h-3.5 w-3.5 stroke-[1.5] text-[#B39258]" />
+                        <span>{t.auth.previewReadOnly}</span>
+                      </p>
+                      <p className="text-[11px] font-light text-[#5F7067]">
+                        {t.auth.previewReadOnlyDesc}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      id="toggle-readonly-preview-btn"
+                      onClick={() => setPreviewReadOnly(!previewReadOnly)}
+                      className={`shrink-0 rounded-full border px-3 py-1 text-[11px] font-medium transition ${
+                        previewReadOnly
+                          ? 'border-[#143B2B] bg-[#143B2B] text-[#FAF8F4]'
+                          : 'border-[#ECE7DE] bg-white text-[#143B2B]'
+                      }`}
+                    >
+                      {previewReadOnly ? 'ON' : 'OFF'}
+                    </button>
+                  </div>
+                )}
+
+                {accountFeedback && (
+                  <p className="rounded-xl bg-[#FCF5F5] px-3 py-2 text-[11.5px] text-[#7C2D36]">
+                    {accountFeedback}
+                  </p>
+                )}
+              </div>
+            )}
+          </article>
+        )}
+
+        {/* 2. Voyageurs (pour Budget -> Par voyageur) */}
         <article className="ivy-card overflow-hidden rounded-2xl">
           <button
             type="button"
@@ -502,39 +887,45 @@ export function InfosTab() {
                 {state.people.map((person) => (
                   <span
                     key={person}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-[#ECE7DE] bg-[#FAF8F4] py-1 pr-2 pl-3 text-[12.5px] font-normal text-[#143B2B]"
+                    className={`inline-flex items-center gap-1.5 rounded-full border border-[#ECE7DE] bg-[#FAF8F4] py-1 pl-3 text-[12.5px] font-normal text-[#143B2B] ${
+                      canEdit ? 'pr-2' : 'pr-3'
+                    }`}
                   >
                     <span>{person}</span>
-                    <button
-                      type="button"
-                      onClick={() => removePerson(person)}
-                      aria-label={`Remove ${person}`}
-                      className="rounded-full p-0.5 text-[#5F7067]/70 hover:text-[#7C2D36]"
-                    >
-                      <Trash2 className="h-3 w-3 stroke-[1.5]" />
-                    </button>
+                    {canEdit && (
+                      <button
+                        type="button"
+                        onClick={() => removePerson(person)}
+                        aria-label={`Remove ${person}`}
+                        className="rounded-full p-0.5 text-[#5F7067]/70 hover:text-[#7C2D36]"
+                      >
+                        <Trash2 className="h-3 w-3 stroke-[1.5]" />
+                      </button>
+                    )}
                   </span>
                 ))}
               </div>
 
-              <form onSubmit={handlePersonSubmit} className="flex gap-2 pt-1">
-                <input
-                  id="new-person-input"
-                  type="text"
-                  value={newPersonName}
-                  onChange={(e) => setNewPersonName(e.target.value)}
-                  placeholder={t.infos.peoplePlaceholder}
-                  className="min-w-0 flex-1 rounded-xl border border-[#ECE7DE] bg-[#FAF8F4] px-3 py-2 text-[12.5px] font-light text-[#143B2B] focus:border-[#143B2B] focus:outline-none"
-                />
-                <button
-                  id="add-person-submit"
-                  type="submit"
-                  aria-label={t.add}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#143B2B] text-[#FAF8F4]"
-                >
-                  <Plus className="h-4 w-4 stroke-[1.6]" />
-                </button>
-              </form>
+              {canEdit && (
+                <form onSubmit={handlePersonSubmit} className="flex gap-2 pt-1">
+                  <input
+                    id="new-person-input"
+                    type="text"
+                    value={newPersonName}
+                    onChange={(e) => setNewPersonName(e.target.value)}
+                    placeholder={t.infos.peoplePlaceholder}
+                    className="min-w-0 flex-1 rounded-xl border border-[#ECE7DE] bg-[#FAF8F4] px-3 py-2 text-[12.5px] font-light text-[#143B2B] focus:border-[#143B2B] focus:outline-none"
+                  />
+                  <button
+                    id="add-person-submit"
+                    type="submit"
+                    aria-label={t.add}
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#143B2B] text-[#FAF8F4]"
+                  >
+                    <Plus className="h-4 w-4 stroke-[1.6]" />
+                  </button>
+                </form>
+              )}
             </div>
           )}
         </article>
@@ -706,30 +1097,34 @@ export function InfosTab() {
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className={canEdit ? 'grid grid-cols-2 gap-2' : ''}>
                 <button
                   type="button"
                   onClick={handleExportJson}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#ECE7DE] bg-white py-2 text-[12px] font-light text-[#143B2B]"
+                  className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-[#ECE7DE] bg-white py-2 text-[12px] font-light text-[#143B2B]"
                 >
                   <Download className="h-3.5 w-3.5 stroke-[1.5] text-[#B39258]" />
                   <span>{t.infos.exportJson}</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#ECE7DE] bg-white py-2 text-[12px] font-light text-[#143B2B]"
-                >
-                  <Upload className="h-3.5 w-3.5 stroke-[1.5] text-[#B39258]" />
-                  <span>{t.infos.importJson}</span>
-                </button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="application/json,.json"
-                  onChange={handleImportFile}
-                  className="hidden"
-                />
+                {canEdit && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#ECE7DE] bg-white py-2 text-[12px] font-light text-[#143B2B]"
+                    >
+                      <Upload className="h-3.5 w-3.5 stroke-[1.5] text-[#B39258]" />
+                      <span>{t.infos.importJson}</span>
+                    </button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="application/json,.json"
+                      onChange={handleImportFile}
+                      className="hidden"
+                    />
+                  </>
+                )}
               </div>
 
               {importFeedback && (
@@ -738,41 +1133,43 @@ export function InfosTab() {
                 </p>
               )}
 
-              <div className="flex items-center justify-between pt-1">
-                <span className="text-[11.5px] font-light text-[#5F7067]">
-                  {t.infos.resetLabel}
-                </span>
-                {confirmReset ? (
-                  <div className="flex items-center gap-2">
+              {canEdit && (
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-[11.5px] font-light text-[#5F7067]">
+                    {t.infos.resetLabel}
+                  </span>
+                  {confirmReset ? (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setConfirmReset(false)}
+                        className="text-[11.5px] font-light text-[#5F7067]"
+                      >
+                        {t.cancel}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          resetTripState();
+                          setConfirmReset(false);
+                        }}
+                        className="rounded-lg bg-[#7C2D36] px-2.5 py-1 text-[11px] font-normal text-white"
+                      >
+                        {t.infos.confirm}
+                      </button>
+                    </div>
+                  ) : (
                     <button
                       type="button"
-                      onClick={() => setConfirmReset(false)}
-                      className="text-[11.5px] font-light text-[#5F7067]"
+                      onClick={() => setConfirmReset(true)}
+                      className="inline-flex items-center gap-1 text-[11.5px] font-light text-[#7C2D36]"
                     >
-                      {t.cancel}
+                      <RotateCcw className="h-3 w-3 stroke-[1.5]" />
+                      <span>{t.infos.resetBtn}</span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        resetTripState();
-                        setConfirmReset(false);
-                      }}
-                      className="rounded-lg bg-[#7C2D36] px-2.5 py-1 text-[11px] font-normal text-white"
-                    >
-                      {t.infos.confirm}
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setConfirmReset(true)}
-                    className="inline-flex items-center gap-1 text-[11.5px] font-light text-[#7C2D36]"
-                  >
-                    <RotateCcw className="h-3 w-3 stroke-[1.5]" />
-                    <span>{t.infos.resetBtn}</span>
-                  </button>
-                )}
-              </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </article>

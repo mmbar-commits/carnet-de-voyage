@@ -38,7 +38,7 @@ function buildExternalRouteUrl(route: DayRoute): string {
 }
 
 export function CarnetTab() {
-  const { lang, selectedDayId, state, updateMemory, setActiveTab } = useTrip();
+  const { lang, selectedDayId, state, updateMemory, setActiveTab, canEdit } = useTrip();
   const [justSaved, setJustSaved] = useState(false);
 
   const t = UI_TEXT[lang];
@@ -49,12 +49,14 @@ export function CarnetTab() {
   const memoryText = memory?.note ?? '';
 
   const handleNoteChange = (nextVal: string) => {
+    if (!canEdit) return;
     updateMemory(day.id, nextVal);
     setJustSaved(true);
     window.setTimeout(() => setJustSaved(false), 1600);
   };
 
   const appendPrompt = (prompt: string) => {
+    if (!canEdit) return;
     const prefix = memoryText.trim().length > 0 ? `${memoryText.trimEnd()}\n` : '';
     handleNoteChange(`${prefix}${prompt}`);
   };
@@ -151,57 +153,64 @@ export function CarnetTab() {
         </div>
       </article>
 
-      {/* Editable Memories Notebook */}
-      <div className="ivy-card rounded-3xl px-5 py-5">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <Feather className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
-            <h3 className="font-editorial text-[22px] font-medium text-[#143B2B]">
-              {t.journal.memories}
-            </h3>
-          </div>
-          <span
-            id="carnet-save-status"
-            className="inline-flex items-center gap-1 text-[11px] font-light text-[#5F7067]"
-          >
-            {justSaved ? (
-              <>
-                <Check className="h-3.5 w-3.5 text-[#143B2B]" />
-                <span className="text-[#143B2B]">{t.journal.saved}</span>
-              </>
-            ) : formattedUpdatedAt ? (
-              <span>{formattedUpdatedAt}</span>
-            ) : (
-              <span>{t.journal.auto}</span>
+      {/* Editable Memories Notebook (read-only for viewers) */}
+      {(canEdit || memoryText.trim().length > 0) && (
+        <div className="ivy-card rounded-3xl px-5 py-5">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Feather className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+              <h3 className="font-editorial text-[22px] font-medium text-[#143B2B]">
+                {t.journal.memories}
+              </h3>
+            </div>
+            {canEdit && (
+              <span
+                id="carnet-save-status"
+                className="inline-flex items-center gap-1 text-[11px] font-light text-[#5F7067]"
+              >
+                {justSaved ? (
+                  <>
+                    <Check className="h-3.5 w-3.5 text-[#143B2B]" />
+                    <span className="text-[#143B2B]">{t.journal.saved}</span>
+                  </>
+                ) : formattedUpdatedAt ? (
+                  <span>{formattedUpdatedAt}</span>
+                ) : (
+                  <span>{t.journal.auto}</span>
+                )}
+              </span>
             )}
-          </span>
-        </div>
+          </div>
 
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {t.journal.prompts.map((prompt) => (
-            <button
-              key={prompt}
-              type="button"
-              onClick={() => appendPrompt(prompt)}
-              className="rounded-full border border-[#ECE7DE] bg-[#FAF8F4] px-2.5 py-1 text-[11px] font-light text-[#143B2B] transition hover:border-[#B39258]"
-            >
-              + {prompt.split(':')[0]}
-            </button>
-          ))}
-        </div>
+          {canEdit && (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {t.journal.prompts.map((prompt) => (
+                <button
+                  key={prompt}
+                  type="button"
+                  onClick={() => appendPrompt(prompt)}
+                  className="rounded-full border border-[#ECE7DE] bg-[#FAF8F4] px-2.5 py-1 text-[11px] font-light text-[#143B2B] transition hover:border-[#B39258]"
+                >
+                  + {prompt.split(':')[0]}
+                </button>
+              ))}
+            </div>
+          )}
 
-        <label className="sr-only" htmlFor="carnet-memory-textarea">
-          {t.journal.memories}
-        </label>
-        <textarea
-          id="carnet-memory-textarea"
-          rows={4}
-          value={memoryText}
-          onChange={(e) => handleNoteChange(e.target.value)}
-          placeholder={t.journal.placeholder}
-          className="notebook-paper font-hand mt-3 w-full resize-y rounded-2xl border border-[#ECE7DE] px-4 py-2 text-[13.5px] font-light text-[#143B2B] placeholder:text-[#5F7067]/45 focus:border-[#143B2B] focus:outline-none"
-        />
-      </div>
+          <label className="sr-only" htmlFor="carnet-memory-textarea">
+            {t.journal.memories}
+          </label>
+          <textarea
+            id="carnet-memory-textarea"
+            rows={4}
+            readOnly={!canEdit}
+            value={memoryText}
+            onChange={(e) => handleNoteChange(e.target.value)}
+            placeholder={canEdit ? t.journal.placeholder : ''}
+            className="notebook-paper font-hand mt-3 w-full resize-y rounded-2xl border border-[#ECE7DE] px-4 py-2 text-[13.5px] font-light text-[#143B2B] placeholder:text-[#5F7067]/45 focus:border-[#143B2B] focus:outline-none"
+          />
+        </div>
+      )}
 
       {/* Custom Ivy Collection Styled Day Itinerary Map (zero clutter overlays) */}
       <div

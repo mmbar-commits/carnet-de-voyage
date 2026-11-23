@@ -14,6 +14,7 @@ export function PlanningTab() {
     state,
     selectedDayId,
     setActiveTab,
+    canEdit,
     toggleStepDone,
     cycleStepBookingStatus,
     addStep,
@@ -132,20 +133,22 @@ export function PlanningTab() {
         )}
       </div>
 
-      <button
-        type="button"
-        id="add-step-btn"
-        onClick={() => {
-          setEditingStep(undefined);
-          setModalOpen(true);
-        }}
-        className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-[#D8CEBC] bg-white/60 py-3.5 text-[13px] font-normal text-[#143B2B] transition hover:border-[#B39258] hover:bg-white"
-      >
-        <Plus className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
-        <span>{t.addStep}</span>
-      </button>
+      {canEdit && (
+        <button
+          type="button"
+          id="add-step-btn"
+          onClick={() => {
+            setEditingStep(undefined);
+            setModalOpen(true);
+          }}
+          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-[#D8CEBC] bg-white/60 py-3.5 text-[13px] font-normal text-[#143B2B] transition hover:border-[#B39258] hover:bg-white"
+        >
+          <Plus className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+          <span>{t.addStep}</span>
+        </button>
+      )}
 
-      {modalOpen && (
+      {canEdit && modalOpen && (
         <StepModal
           defaultDayId={day.id}
           initialStep={editingStep}

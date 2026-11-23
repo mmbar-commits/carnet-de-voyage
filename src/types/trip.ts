@@ -143,6 +143,24 @@ export interface SyncStatus {
   errorMessage?: string;
 }
 
+export type MemberRole = 'editor' | 'viewer';
+
+export type TripAccessRole = MemberRole | 'unclaimed' | 'none';
+
+export interface AuthUser {
+  id: string;
+  email: string;
+}
+
+export interface TripMember {
+  id: string;
+  familyCode: string;
+  email: string;
+  userId?: string | null;
+  role: MemberRole;
+  createdAt?: string;
+}
+
 export interface TripState {
   version: number;
   updatedAt: string;
@@ -152,4 +170,5 @@ export interface TripState {
   checklist: ChecklistItem[];
   rates: ExchangeRates;
   people: string[];
+  hideBudgetForViewers?: boolean;
 }

@@ -17,7 +17,8 @@ type ScopeFilter = 'all' | 'planned' | 'bonus';
 const ALL_TAGS: ActivityTag[] = ['gratuit', 'resident_th', 'interieur', 'top_4_ans'];
 
 export function ActivitesTab() {
-  const { lang, state, selectedDayId, assignBonusActivity, navigateToDay } = useTrip();
+  const { lang, state, selectedDayId, assignBonusActivity, navigateToDay, canEdit } =
+    useTrip();
   const t = UI_TEXT[lang];
   const [scope, setScope] = useState<ScopeFilter>('bonus');
   const [activeTags, setActiveTags] = useState<ActivityTag[]>([]);
@@ -260,15 +261,17 @@ export function ActivitesTab() {
                             </span>
                           </button>
                         )}
-                        <button
-                          type="button"
-                          id={`assign-btn-${act.id}`}
-                          onClick={() => openAssignPicker(act)}
-                          className="inline-flex items-center gap-1.5 rounded-xl bg-[#143B2B] px-3 py-1.5 text-[12px] font-normal text-[#FAF8F4]"
-                        >
-                          <CalendarPlus className="h-3.5 w-3.5 stroke-[1.5] text-[#D7BD8A]" />
-                          <span>{t.activities.assign}</span>
-                        </button>
+                        {canEdit && (
+                          <button
+                            type="button"
+                            id={`assign-btn-${act.id}`}
+                            onClick={() => openAssignPicker(act)}
+                            className="inline-flex items-center gap-1.5 rounded-xl bg-[#143B2B] px-3 py-1.5 text-[12px] font-normal text-[#FAF8F4]"
+                          >
+                            <CalendarPlus className="h-3.5 w-3.5 stroke-[1.5] text-[#D7BD8A]" />
+                            <span>{t.activities.assign}</span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   )}

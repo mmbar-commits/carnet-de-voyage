@@ -38,6 +38,7 @@ export function BudgetTab() {
   const {
     lang,
     state,
+    canEdit,
     toggleExpensePaid,
     addExpense,
     updateExpense,
@@ -240,19 +241,29 @@ export function BudgetTab() {
         className="flex items-start justify-between gap-3 py-3 first:pt-1 last:pb-1"
       >
         <div className="flex min-w-0 items-start gap-2.5">
-          <button
-            type="button"
-            id={options?.keyPrefix ? undefined : `toggle-paid-${item.id}`}
-            onClick={() => toggleExpensePaid(item.id)}
-            aria-label="Toggle paid"
-            className="mt-0.5 shrink-0 text-[#143B2B]"
-          >
-            {item.paid ? (
-              <CheckCircle2 className="h-4 w-4 fill-[#143B2B] text-[#FAF8F4]" />
-            ) : (
-              <Circle className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
-            )}
-          </button>
+          {canEdit ? (
+            <button
+              type="button"
+              id={options?.keyPrefix ? undefined : `toggle-paid-${item.id}`}
+              onClick={() => toggleExpensePaid(item.id)}
+              aria-label="Toggle paid"
+              className="mt-0.5 shrink-0 text-[#143B2B]"
+            >
+              {item.paid ? (
+                <CheckCircle2 className="h-4 w-4 fill-[#143B2B] text-[#FAF8F4]" />
+              ) : (
+                <Circle className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+              )}
+            </button>
+          ) : (
+            <span className="mt-0.5 shrink-0 text-[#143B2B]">
+              {item.paid ? (
+                <CheckCircle2 className="h-4 w-4 fill-[#143B2B] text-[#FAF8F4]" />
+              ) : (
+                <Circle className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+              )}
+            </span>
+          )}
 
           <div className="min-w-0">
             <p
@@ -292,17 +303,19 @@ export function BudgetTab() {
               {formatSecondary(item.amountGbp)}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              setEditingExpense(item);
-              setModalDayId(item.dayId);
-            }}
-            aria-label="Edit expense"
-            className="p-1 text-[#5F7067]/70 hover:text-[#143B2B]"
-          >
-            <Pencil className="h-3.5 w-3.5 stroke-[1.5]" />
-          </button>
+          {canEdit && (
+            <button
+              type="button"
+              onClick={() => {
+                setEditingExpense(item);
+                setModalDayId(item.dayId);
+              }}
+              aria-label="Edit expense"
+              className="p-1 text-[#5F7067]/70 hover:text-[#143B2B]"
+            >
+              <Pencil className="h-3.5 w-3.5 stroke-[1.5]" />
+            </button>
+          )}
         </div>
       </li>
     );
@@ -345,19 +358,21 @@ export function BudgetTab() {
             ))}
           </div>
 
-          <button
-            type="button"
-            id="toggle-rates-btn"
-            onClick={() => setShowRatesEditor((v) => !v)}
-            aria-label="Exchange rate"
-            className="flex h-8 w-8 items-center justify-center rounded-full border border-[#ECE7DE] bg-white text-[#143B2B]"
-          >
-            <SlidersHorizontal className="h-3.5 w-3.5 stroke-[1.5] text-[#B39258]" />
-          </button>
+          {canEdit && (
+            <button
+              type="button"
+              id="toggle-rates-btn"
+              onClick={() => setShowRatesEditor((v) => !v)}
+              aria-label="Exchange rate"
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-[#ECE7DE] bg-white text-[#143B2B]"
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5 stroke-[1.5] text-[#B39258]" />
+            </button>
+          )}
         </div>
       </div>
 
-      {showRatesEditor && (
+      {canEdit && showRatesEditor && (
         <div className="ivy-card flex items-center justify-between gap-3 rounded-2xl px-4 py-3.5">
           <label
             htmlFor="rate-mad-input"
@@ -535,18 +550,20 @@ export function BudgetTab() {
                     </ul>
                   )}
 
-                  <button
-                    type="button"
-                    id={`add-expense-btn-${group.id}`}
-                    onClick={() => {
-                      setEditingExpense(undefined);
-                      setModalDayId(group.id);
-                    }}
-                    className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-[#D8CEBC] bg-white py-2 text-[12px] font-light text-[#143B2B]"
-                  >
-                    <Plus className="h-3.5 w-3.5 stroke-[1.5] text-[#B39258]" />
-                    <span>{t.budget.addExpense}</span>
-                  </button>
+                  {canEdit && (
+                    <button
+                      type="button"
+                      id={`add-expense-btn-${group.id}`}
+                      onClick={() => {
+                        setEditingExpense(undefined);
+                        setModalDayId(group.id);
+                      }}
+                      className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-[#D8CEBC] bg-white py-2 text-[12px] font-light text-[#143B2B]"
+                    >
+                      <Plus className="h-3.5 w-3.5 stroke-[1.5] text-[#B39258]" />
+                      <span>{t.budget.addExpense}</span>
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -784,7 +801,7 @@ export function BudgetTab() {
         })}
       </div>
 
-      {modalDayId && (
+      {canEdit && modalDayId && (
         <ExpenseModal
           defaultDayId={modalDayId}
           initialExpense={editingExpense}

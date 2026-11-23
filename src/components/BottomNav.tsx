@@ -12,16 +12,23 @@ const NAV_ICONS: { id: TabId; icon: typeof CalendarDays }[] = [
 ];
 
 export function BottomNav() {
-  const { lang, activeTab, setActiveTab } = useTrip();
+  const { lang, activeTab, setActiveTab, canViewBudget } = useTrip();
   const labels = UI_TEXT[lang].nav;
+  const visibleItems = canViewBudget
+    ? NAV_ICONS
+    : NAV_ICONS.filter((item) => item.id !== 'budget');
 
   return (
     <nav
       aria-label="Navigation"
       className="safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-[#ECE7DE] bg-[#FAF8F4]/95 backdrop-blur-md"
     >
-      <div className="mx-auto grid max-w-md grid-cols-5 px-2 pt-2 pb-1">
-        {NAV_ICONS.map(({ id, icon: Icon }) => {
+      <div
+        className={`mx-auto grid max-w-md px-2 pt-2 pb-1 ${
+          visibleItems.length === 4 ? 'grid-cols-4' : 'grid-cols-5'
+        }`}
+      >
+        {visibleItems.map(({ id, icon: Icon }) => {
           const isActive = activeTab === id;
           return (
             <button

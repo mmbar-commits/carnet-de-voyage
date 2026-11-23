@@ -1,4 +1,7 @@
 import type { ChecklistItem } from '../types/trip';
+import authRolesSql from '../../supabase/option_a_auth_roles.sql?raw';
+
+export const SUPABASE_AUTH_SQL_SNIPPET = authRolesSql.trim();
 
 export const FLIGHT_INFO = {
   airline: 'Royal Air Maroc',

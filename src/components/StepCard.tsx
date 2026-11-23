@@ -67,7 +67,7 @@ export function StepCard({
   onMoveDown,
   onMoveToDay,
 }: StepCardProps) {
-  const { lang } = useTrip();
+  const { lang, canEdit } = useTrip();
   const t = UI_TEXT[lang];
   const [expanded, setExpanded] = useState(false);
   const mapsUrl = buildMapsUrl(step);
@@ -100,16 +100,26 @@ export function StepCard({
             </span>
           )}
 
-          <button
-            type="button"
-            id={`booking-btn-${step.id}`}
-            onClick={onCycleBooking}
-            className={`rounded-full border px-2.5 py-0.5 text-[10.5px] font-medium transition ${
-              BOOKING_STYLE[step.bookingStatus]
-            }`}
-          >
-            {getBookingLabel(step.bookingStatus, lang)}
-          </button>
+          {canEdit ? (
+            <button
+              type="button"
+              id={`booking-btn-${step.id}`}
+              onClick={onCycleBooking}
+              className={`rounded-full border px-2.5 py-0.5 text-[10.5px] font-medium transition ${
+                BOOKING_STYLE[step.bookingStatus]
+              }`}
+            >
+              {getBookingLabel(step.bookingStatus, lang)}
+            </button>
+          ) : (
+            <span
+              className={`rounded-full border px-2.5 py-0.5 text-[10.5px] font-medium ${
+                BOOKING_STYLE[step.bookingStatus]
+              }`}
+            >
+              {getBookingLabel(step.bookingStatus, lang)}
+            </span>
+          )}
 
           {step.isTowerHamletsBenefit && (
             <span className="rounded-full bg-[#F8F3E9] px-2 py-0.5 text-[10.5px] font-medium text-[#83662F]">
@@ -118,24 +128,37 @@ export function StepCard({
           )}
         </div>
 
-        <button
-          type="button"
-          id={`done-btn-${step.id}`}
-          onClick={onToggleDone}
-          aria-pressed={step.done}
-          aria-label="Toggle done"
-          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border transition ${
-            step.done
-              ? isMeal
+        {canEdit ? (
+          <button
+            type="button"
+            id={`done-btn-${step.id}`}
+            onClick={onToggleDone}
+            aria-pressed={step.done}
+            aria-label="Toggle done"
+            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border transition ${
+              step.done
+                ? isMeal
+                  ? 'border-[#8C6226] bg-[#8C6226] text-[#FAF8F4]'
+                  : 'border-[#143B2B] bg-[#143B2B] text-[#FAF8F4]'
+                : isMeal
+                  ? 'border-[#D9C39F] bg-white/80 text-transparent hover:border-[#8C6226]'
+                  : 'border-[#DDD6C9] bg-white text-transparent hover:border-[#143B2B]'
+            }`}
+          >
+            <Check className="h-3.5 w-3.5 stroke-[2]" />
+          </button>
+        ) : step.done ? (
+          <span
+            aria-label="Done"
+            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${
+              isMeal
                 ? 'border-[#8C6226] bg-[#8C6226] text-[#FAF8F4]'
                 : 'border-[#143B2B] bg-[#143B2B] text-[#FAF8F4]'
-              : isMeal
-                ? 'border-[#D9C39F] bg-white/80 text-transparent hover:border-[#8C6226]'
-                : 'border-[#DDD6C9] bg-white text-transparent hover:border-[#143B2B]'
-          }`}
-        >
-          <Check className="h-3.5 w-3.5 stroke-[2]" />
-        </button>
+            }`}
+          >
+            <Check className="h-3 w-3 stroke-[2]" />
+          </span>
+        ) : null}
       </div>
 
       {/* Editorial title */}
@@ -242,55 +265,57 @@ export function StepCard({
             </p>
           )}
 
-          <div className="flex items-center justify-between gap-2 pt-1">
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={onMoveUp}
-                disabled={index === 0}
-                aria-label="Move up"
-                className="flex h-7 w-7 items-center justify-center rounded-lg border border-[#ECE7DE] bg-white text-[#143B2B] disabled:opacity-30"
-              >
-                <ArrowUp className="h-3.5 w-3.5 stroke-[1.5]" />
-              </button>
-              <button
-                type="button"
-                onClick={onMoveDown}
-                disabled={index === total - 1}
-                aria-label="Move down"
-                className="flex h-7 w-7 items-center justify-center rounded-lg border border-[#ECE7DE] bg-white text-[#143B2B] disabled:opacity-30"
-              >
-                <ArrowDown className="h-3.5 w-3.5 stroke-[1.5]" />
-              </button>
+          {canEdit && (
+            <div className="flex items-center justify-between gap-2 pt-1">
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={onMoveUp}
+                  disabled={index === 0}
+                  aria-label="Move up"
+                  className="flex h-7 w-7 items-center justify-center rounded-lg border border-[#ECE7DE] bg-white text-[#143B2B] disabled:opacity-30"
+                >
+                  <ArrowUp className="h-3.5 w-3.5 stroke-[1.5]" />
+                </button>
+                <button
+                  type="button"
+                  onClick={onMoveDown}
+                  disabled={index === total - 1}
+                  aria-label="Move down"
+                  className="flex h-7 w-7 items-center justify-center rounded-lg border border-[#ECE7DE] bg-white text-[#143B2B] disabled:opacity-30"
+                >
+                  <ArrowDown className="h-3.5 w-3.5 stroke-[1.5]" />
+                </button>
 
-              <select
-                id={`move-day-${step.id}`}
-                value={step.dayId}
-                onChange={(e) => onMoveToDay(e.target.value)}
-                className="h-7 rounded-lg border border-[#ECE7DE] bg-[#FAF8F4] px-2 text-[11px] font-normal text-[#143B2B]"
+                <select
+                  id={`move-day-${step.id}`}
+                  value={step.dayId}
+                  onChange={(e) => onMoveToDay(e.target.value)}
+                  className="h-7 rounded-lg border border-[#ECE7DE] bg-[#FAF8F4] px-2 text-[11px] font-normal text-[#143B2B]"
+                >
+                  {TRIP_DAYS.map((d) => {
+                    const dl = getDayLabel(d, lang);
+                    return (
+                      <option key={d.id} value={d.id}>
+                        {lang === 'fr' ? 'J' : 'D'}
+                        {d.dayNumber} · {dl.dateShort}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              <button
+                type="button"
+                id={`edit-step-btn-${step.id}`}
+                onClick={onEdit}
+                className="inline-flex h-7 items-center gap-1.5 rounded-lg border border-[#ECE7DE] bg-white px-2.5 text-[11.5px] font-normal text-[#143B2B]"
               >
-                {TRIP_DAYS.map((d) => {
-                  const dl = getDayLabel(d, lang);
-                  return (
-                    <option key={d.id} value={d.id}>
-                      {lang === 'fr' ? 'J' : 'D'}
-                      {d.dayNumber} · {dl.dateShort}
-                    </option>
-                  );
-                })}
-              </select>
+                <Pencil className="h-3 w-3 stroke-[1.5] text-[#B39258]" />
+                <span>{t.edit}</span>
+              </button>
             </div>
-
-            <button
-              type="button"
-              id={`edit-step-btn-${step.id}`}
-              onClick={onEdit}
-              className="inline-flex h-7 items-center gap-1.5 rounded-lg border border-[#ECE7DE] bg-white px-2.5 text-[11.5px] font-normal text-[#143B2B]"
-            >
-              <Pencil className="h-3 w-3 stroke-[1.5] text-[#B39258]" />
-              <span>{t.edit}</span>
-            </button>
-          </div>
+          )}
         </div>
       )}
     </article>

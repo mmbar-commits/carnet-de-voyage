@@ -234,19 +234,21 @@ export function InfosTab() {
     }
   };
 
-  const editorCount = tripMembers.filter((m) => m.role === 'editor').length;
+  const adminCount = tripMembers.filter((m) => m.role === 'admin').length;
 
   const accountBadge = !authUser
     ? tripRole === 'none'
       ? t.auth.noAccessBadge
       : t.auth.signedOut
-    : tripRole === 'editor'
-      ? t.auth.editorRole
-      : tripRole === 'viewer'
-        ? t.auth.viewerRole
-        : tripRole === 'none'
-          ? t.auth.noAccessBadge
-          : t.auth.unclaimedBadge;
+    : tripRole === 'admin'
+      ? t.auth.adminRole
+      : tripRole === 'editor'
+        ? t.auth.editorRole
+        : tripRole === 'viewer'
+          ? t.auth.viewerRole
+          : tripRole === 'none'
+            ? t.auth.noAccessBadge
+            : t.auth.unclaimedBadge;
 
   const checkedCount = state.checklist.filter((c) => c.checked).length;
 
@@ -564,11 +566,13 @@ export function InfosTab() {
               <div className="flex items-center gap-2">
                 <span
                   className={`rounded-full px-2 py-0.5 text-[10.5px] font-normal ${
-                    tripRole === 'editor'
+                    tripRole === 'admin'
                       ? 'bg-[#143B2B] text-[#FAF8F4]'
-                      : tripRole === 'viewer'
-                        ? 'bg-[#F8F3E9] text-[#83662F]'
-                        : 'text-[#5F7067]'
+                      : tripRole === 'editor'
+                        ? 'border border-[#B39258]/50 bg-[#F8F3E9] text-[#143B2B]'
+                        : tripRole === 'viewer'
+                          ? 'bg-[#F8F3E9] text-[#83662F]'
+                          : 'text-[#5F7067]'
                   }`}
                 >
                   {accountBadge}
@@ -692,8 +696,38 @@ export function InfosTab() {
                       </p>
                     )}
 
-                    {/* Case 4: Editor management panel */}
+                    {/* Case 4a: Editor info note (can edit trip, cannot manage users) */}
                     {membersSqlReady && tripRole === 'editor' && (
+                      <div className="space-y-2.5">
+                        <p className="rounded-xl border border-[#ECE7DE] bg-[#FAF8F4] px-3 py-2.5 text-[12px] leading-relaxed text-[#5F7067]">
+                          {t.auth.editorAccessNote}
+                        </p>
+                        {tripMembers.length > 0 && (
+                          <ul className="divide-y divide-[#F2EDE4] rounded-xl border border-[#ECE7DE] bg-[#FDFCF9] px-3">
+                            {tripMembers.map((member) => (
+                              <li
+                                key={member.id}
+                                className="flex items-center justify-between gap-2 py-2"
+                              >
+                                <span className="truncate text-[12px] font-normal text-[#143B2B]">
+                                  {member.email}
+                                </span>
+                                <span className="shrink-0 text-[11px] font-light text-[#83662F]">
+                                  {member.role === 'admin'
+                                    ? t.auth.adminRole
+                                    : member.role === 'editor'
+                                      ? t.auth.editorRole
+                                      : t.auth.viewerRole}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Case 4b: Admin management panel */}
+                    {membersSqlReady && tripRole === 'admin' && (
                       <div className="space-y-3">
                         <p className="text-[11px] font-normal uppercase tracking-wider text-[#8F7038]">
                           {t.auth.membersHeading} ({tripMembers.length})
@@ -701,8 +735,8 @@ export function InfosTab() {
 
                         <ul className="divide-y divide-[#F2EDE4] rounded-xl border border-[#ECE7DE] bg-[#FDFCF9] px-3">
                           {tripMembers.map((member) => {
-                            const isSelfLastEditor =
-                              member.role === 'editor' && editorCount <= 1;
+                            const isLastAdmin =
+                              member.role === 'admin' && adminCount <= 1;
                             return (
                               <li
                                 key={member.id}
@@ -723,7 +757,7 @@ export function InfosTab() {
                                   <select
                                     aria-label={`Role for ${member.email}`}
                                     value={member.role}
-                                    disabled={isSelfLastEditor}
+                                    disabled={isLastAdmin}
                                     onChange={(e) =>
                                       void changeMemberRole(
                                         member.id,
@@ -732,10 +766,11 @@ export function InfosTab() {
                                     }
                                     className="rounded-lg border border-[#ECE7DE] bg-white px-2 py-1 text-[11px] font-normal text-[#143B2B] disabled:opacity-50"
                                   >
+                                    <option value="admin">{t.auth.adminRole}</option>
                                     <option value="editor">{t.auth.editorRole}</option>
                                     <option value="viewer">{t.auth.viewerRole}</option>
                                   </select>
-                                  {!isSelfLastEditor && (
+                                  {!isLastAdmin && (
                                     <button
                                       type="button"
                                       onClick={() => void removeMember(member.id)}
@@ -776,6 +811,7 @@ export function InfosTab() {
                             >
                               <option value="viewer">{t.auth.viewerRole}</option>
                               <option value="editor">{t.auth.editorRole}</option>
+                              <option value="admin">{t.auth.adminRole}</option>
                             </select>
                             <button
                               id="invite-member-submit"
@@ -1133,7 +1169,7 @@ export function InfosTab() {
                 </p>
               )}
 
-              {canEdit && (
+              {canEdit && (tripRole === 'admin' || tripRole === 'unclaimed') && (
                 <div className="flex items-center justify-between pt-1">
                   <span className="text-[11.5px] font-light text-[#5F7067]">
                     {t.infos.resetLabel}

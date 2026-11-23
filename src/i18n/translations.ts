@@ -100,6 +100,7 @@ export const UI_TEXT = {
     auth: {
       sectionTitle: 'Compte & Accès',
       signedOut: 'Invité',
+      adminRole: 'Admin',
       editorRole: 'Éditeur',
       viewerRole: 'Lecture seule',
       unclaimedBadge: 'Libre',
@@ -112,12 +113,16 @@ export const UI_TEXT = {
       hideBudgetDesc: 'Cache l’onglet Budget pour les comptes en lecture seule.',
       signInBtn: 'Se connecter / Créer un compte',
       signOutBtn: 'Se déconnecter',
+      continueWithGoogle: 'Continuer avec Google',
+      orDivider: 'ou par email',
       claimTripTitle: 'Protéger ce voyage avec votre compte',
       claimTripDesc:
-        'En revendiquant ce voyage, vous devenez Éditeur et pourrez inviter des comptes Éditeur ou Lecture seule.',
-      claimTripBtn: 'Activer la protection (Éditeur)',
+        'En revendiquant ce voyage, vous devenez Admin et pourrez gérer les accès (Admin, Éditeur ou Lecture seule).',
+      claimTripBtn: 'Activer la protection (Admin)',
+      editorAccessNote:
+        'Vous avez un accès Éditeur : vous pouvez modifier tout le voyage. Seul un Admin peut gérer les membres et les rôles.',
       noAccessDesc:
-        'Ce voyage est protégé. Connectez-vous avec un email invité ou demandez à un Éditeur de vous ajouter.',
+        'Ce voyage est protégé. Connectez-vous avec un email invité ou demandez à un Admin de vous ajouter.',
       sqlPendingTitle: 'Dernière étape sur Supabase',
       sqlPendingDesc:
         'Exécutez le script SQL Option A dans votre Supabase SQL Editor pour activer les comptes et rôles sécurisés.',
@@ -144,7 +149,7 @@ export const UI_TEXT = {
       confirmEmailSent:
         'Compte créé ! Vérifiez votre email pour confirmer votre adresse, puis connectez-vous.',
       accountDescSignedOut:
-        'Connectez-vous pour gérer qui peut modifier ce voyage (Éditeur) ou seulement le consulter (Lecture seule).',
+        'Connectez-vous pour gérer qui administre ce voyage (Admin), peut le modifier (Éditeur) ou seulement le consulter (Lecture seule).',
     },
     infos: {
       prepEyebrow: 'Pratique · Mayfair W1J 7SU',
@@ -286,6 +291,7 @@ export const UI_TEXT = {
     auth: {
       sectionTitle: 'Account & Access',
       signedOut: 'Guest',
+      adminRole: 'Admin',
       editorRole: 'Editor',
       viewerRole: 'Read-only',
       unclaimedBadge: 'Open',
@@ -298,12 +304,16 @@ export const UI_TEXT = {
       hideBudgetDesc: 'Hides the Budget tab from read-only accounts.',
       signInBtn: 'Sign in / Create account',
       signOutBtn: 'Sign out',
+      continueWithGoogle: 'Continue with Google',
+      orDivider: 'or with email',
       claimTripTitle: 'Protect this trip with your account',
       claimTripDesc:
-        'Claiming this trip makes you an Editor so you can invite Editor or Read-only accounts.',
-      claimTripBtn: 'Enable protection (Editor)',
+        'Claiming this trip makes you an Admin so you can manage access (Admin, Editor or Read-only).',
+      claimTripBtn: 'Enable protection (Admin)',
+      editorAccessNote:
+        'You have Editor access: you can edit all trip content. Only an Admin can manage members and roles.',
       noAccessDesc:
-        'This trip is protected. Sign in with an invited email or ask an Editor to add you.',
+        'This trip is protected. Sign in with an invited email or ask an Admin to add you.',
       sqlPendingTitle: 'Final step in Supabase',
       sqlPendingDesc:
         'Run the Option A SQL migration in your Supabase SQL Editor to activate accounts & role security.',
@@ -330,7 +340,7 @@ export const UI_TEXT = {
       confirmEmailSent:
         'Account created! Check your email to confirm your address, then sign in.',
       accountDescSignedOut:
-        'Sign in to control who can edit this trip (Editor) or view it in read-only mode (Read-only).',
+        'Sign in to manage who administers this trip (Admin), can edit it (Editor) or view it in read-only mode (Read-only).',
     },
     infos: {
       prepEyebrow: 'Practical · Mayfair W1J 7SU',

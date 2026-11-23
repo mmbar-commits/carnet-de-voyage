@@ -143,7 +143,7 @@ export interface SyncStatus {
   errorMessage?: string;
 }
 
-export type MemberRole = 'editor' | 'viewer';
+export type MemberRole = 'admin' | 'editor' | 'viewer';
 
 export type TripAccessRole = MemberRole | 'unclaimed' | 'none';
 

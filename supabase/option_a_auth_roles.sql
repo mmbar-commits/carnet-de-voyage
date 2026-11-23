@@ -1,7 +1,7 @@
 -- ============================================================================
--- Option A : Comptes personnels (Supabase Auth) + Rôles Éditeur / Lecteur (RLS)
--- Projet : Londres en Famille — Noël 2026
--- À exécuter une seule fois dans : Supabase Dashboard -> SQL Editor -> Run
+-- Option A (v2) : Comptes personnels (Supabase Auth + Google)
+--                 + 3 rôles sécurisés : Admin / Éditeur / Lecteur (RLS)
+-- Idempotent : peut être exécuté sur une base vierge ou par-dessus la v1.
 -- ============================================================================
 
 -- 1. Table des membres et rôles par voyage (family_code)
@@ -10,15 +10,35 @@ create table if not exists public.trip_members (
   family_code text not null,
   email text not null,
   user_id uuid references auth.users(id) on delete set null,
-  role text not null default 'viewer' check (role in ('editor', 'viewer')),
+  role text not null default 'viewer',
   created_at timestamptz not null default now()
 );
+
+-- Mise à jour idempotente de la contrainte des rôles (admin / editor / viewer)
+alter table public.trip_members
+  drop constraint if exists trip_members_role_check;
+
+alter table public.trip_members
+  add constraint trip_members_role_check
+  check (role in ('admin', 'editor', 'viewer'));
 
 create unique index if not exists trip_members_code_email_idx
   on public.trip_members (family_code, lower(email));
 
 create index if not exists trip_members_user_idx
   on public.trip_members (user_id);
+
+-- Migration douce v1 -> v2 : si un voyage avait déjà des éditeurs mais aucun admin,
+-- promouvoir les éditeurs existants en admin pour ne verrouiller personne.
+update public.trip_members m
+set role = 'admin'
+where m.role = 'editor'
+  and not exists (
+    select 1
+    from public.trip_members a
+    where a.family_code = m.family_code
+      and a.role = 'admin'
+  );
 
 -- 2. Fonctions utilitaires SECURITY DEFINER (évite toute récursion RLS)
 create or replace function public.current_user_email()
@@ -59,6 +79,7 @@ as $$
   );
 $$;
 
+-- Admin OU Éditeur : peut modifier le contenu du voyage (trip_sync)
 create or replace function public.is_trip_editor(p_code text)
 returns boolean
 language sql
@@ -70,7 +91,27 @@ as $$
     select 1
     from public.trip_members
     where family_code = p_code
-      and role = 'editor'
+      and role in ('admin', 'editor')
+      and (
+        user_id = auth.uid()
+        or lower(email) = public.current_user_email()
+      )
+  );
+$$;
+
+-- Admin uniquement : peut gérer les utilisateurs et leurs rôles (trip_members)
+create or replace function public.is_trip_admin(p_code text)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select auth.uid() is not null and exists (
+    select 1
+    from public.trip_members
+    where family_code = p_code
+      and role = 'admin'
       and (
         user_id = auth.uid()
         or lower(email) = public.current_user_email()
@@ -110,7 +151,7 @@ begin
 end;
 $$;
 
--- 4. RPC : Permet au premier utilisateur connecté de revendiquer un voyage en tant qu'Éditeur
+-- 4. RPC : Permet au premier utilisateur connecté de revendiquer un voyage en tant qu'Admin
 create or replace function public.claim_trip_if_unclaimed(p_code text)
 returns text
 language plpgsql
@@ -130,11 +171,11 @@ begin
     raise exception 'Email required';
   end if;
 
-  -- Si le voyage n'a encore aucun membre, l'utilisateur connecté devient le premier Éditeur
+  -- Si le voyage n'a encore aucun membre, l'utilisateur connecté devient le premier Admin
   if not exists (select 1 from public.trip_members where family_code = p_code) then
     insert into public.trip_members (family_code, email, user_id, role)
-    values (p_code, v_email, auth.uid(), 'editor');
-    return 'editor';
+    values (p_code, v_email, auth.uid(), 'admin');
+    return 'admin';
   end if;
 
   -- Sinon, rattacher s'il a déjà une invitation par email
@@ -153,7 +194,7 @@ begin
 end;
 $$;
 
--- 5. Droits & Row Level Security sur public.trip_members
+-- 5. Droits & Row Level Security sur public.trip_members (gestion réservée aux Admin)
 grant select, insert, update, delete on public.trip_members to authenticated;
 grant execute on function public.trip_has_members(text) to anon, authenticated;
 grant execute on function public.link_my_trip_memberships() to authenticated;
@@ -169,33 +210,34 @@ create policy "Members read trip_members"
   using (public.is_trip_member(family_code));
 
 drop policy if exists "Editors insert trip_members" on public.trip_members;
-create policy "Editors insert trip_members"
+drop policy if exists "Admins insert trip_members" on public.trip_members;
+create policy "Admins insert trip_members"
   on public.trip_members
   for insert
   to authenticated
-  with check (public.is_trip_editor(family_code));
+  with check (public.is_trip_admin(family_code));
 
 drop policy if exists "Editors update trip_members" on public.trip_members;
-create policy "Editors update trip_members"
+drop policy if exists "Admins update trip_members" on public.trip_members;
+create policy "Admins update trip_members"
   on public.trip_members
   for update
   to authenticated
-  using (public.is_trip_editor(family_code))
-  with check (public.is_trip_editor(family_code));
+  using (public.is_trip_admin(family_code))
+  with check (public.is_trip_admin(family_code));
 
 drop policy if exists "Editors delete trip_members" on public.trip_members;
-create policy "Editors delete trip_members"
+drop policy if exists "Admins delete trip_members" on public.trip_members;
+create policy "Admins delete trip_members"
   on public.trip_members
   for delete
   to authenticated
-  using (public.is_trip_editor(family_code));
+  using (public.is_trip_admin(family_code));
 
--- 6. Mise à jour de la sécurité RLS sur public.trip_sync
---    - Tant qu'un voyage n'est pas encore revendiqué (0 membre), l'ancienne synchro continue sans coupure.
---    - Dès qu'un voyage est protégé par au moins 1 membre :
---        * Éditeur = lecture + écriture
---        * Lecteur = lecture seule (écriture bloquée par Postgres)
---        * Non-membre / non-connecté = bloqué
+-- 6. RLS sur public.trip_sync
+--    - Admin & Éditeur : lecture + écriture du contenu du voyage
+--    - Lecteur : lecture seule
+--    - Suppression de ligne réservée aux Admin
 alter table public.trip_sync enable row level security;
 
 drop policy if exists "Family code read/write" on public.trip_sync;
@@ -239,7 +281,7 @@ create policy "Trip sync delete"
   on public.trip_sync
   for delete
   to authenticated
-  using (public.is_trip_editor(family_code));
+  using (public.is_trip_admin(family_code));
 
 -- 7. Recharger le schéma PostgREST
 notify pgrst, 'reload schema';

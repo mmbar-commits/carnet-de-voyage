@@ -40,7 +40,7 @@ import {
   STATE_VERSION,
 } from './storage';
 import {
-  claimTripAsEditor,
+  claimTripAsAdmin,
   deleteTripMember,
   getCurrentAuthUser,
   inviteOrUpdateMember,
@@ -49,6 +49,7 @@ import {
   pullRemoteState,
   pushRemoteState,
   resolveTripAccess,
+  signInWithGoogleOAuth,
   signInWithMagicLink,
   signInWithPassword,
   signOutAuth,
@@ -80,13 +81,14 @@ interface TripContextValue {
   setSelectedDayId: (dayId: string) => void;
   navigateToDay: (dayId: string, tab?: TabId) => void;
 
-  // Option A — Accounts & Roles
+  // Option A — Accounts & Roles (admin / editor / viewer)
   authUser: AuthUser | null;
   authLoading: boolean;
   tripRole: TripAccessRole;
   tripMembers: TripMember[];
   membersSqlReady: boolean;
   canEdit: boolean;
+  canManageMembers: boolean;
   canViewBudget: boolean;
   previewReadOnly: boolean;
   setPreviewReadOnly: (enabled: boolean) => void;
@@ -99,6 +101,7 @@ interface TripContextValue {
     password: string
   ) => Promise<{ ok: boolean; needsConfirmation?: boolean; error?: string }>;
   sendMagicLink: (email: string) => Promise<{ ok: boolean; error?: string }>;
+  signInWithGoogle: () => Promise<{ ok: boolean; error?: string }>;
   signOut: () => Promise<void>;
   claimCurrentTrip: () => Promise<{ ok: boolean; error?: string }>;
   inviteMember: (email: string, role: MemberRole) => Promise<{ ok: boolean; error?: string }>;
@@ -169,6 +172,7 @@ export function TripProvider({ children }: { children: ReactNode }) {
 
   const isActualReadOnly = tripRole === 'viewer' || tripRole === 'none';
   const canEdit = !isActualReadOnly && !previewReadOnly;
+  const canManageMembers = tripRole === 'admin' && !previewReadOnly;
   const canViewBudget = canEdit || !state.hideBudgetForViewers;
 
   const applyingRemoteRef = useRef(false);
@@ -423,6 +427,10 @@ export function TripProvider({ children }: { children: ReactNode }) {
     return signInWithMagicLink(email);
   }, []);
 
+  const signInWithGoogle = useCallback(async () => {
+    return signInWithGoogleOAuth();
+  }, []);
+
   const signOut = useCallback(async () => {
     await signOutAuth();
     setAuthUser(null);
@@ -431,9 +439,12 @@ export function TripProvider({ children }: { children: ReactNode }) {
 
   const claimCurrentTrip = useCallback(async () => {
     try {
-      const role = await claimTripAsEditor(familyCode);
+      const role = await claimTripAsAdmin(familyCode);
       await refreshAccess();
-      if (role === 'editor' && stateRef.current.updatedAt !== DEFAULT_UPDATED_AT) {
+      if (
+        (role === 'admin' || role === 'editor') &&
+        stateRef.current.updatedAt !== DEFAULT_UPDATED_AT
+      ) {
         await pushRemoteState(familyCode, stateRef.current);
       }
       return { ok: true };
@@ -941,6 +952,7 @@ export function TripProvider({ children }: { children: ReactNode }) {
       tripMembers,
       membersSqlReady,
       canEdit,
+      canManageMembers,
       canViewBudget,
       previewReadOnly,
       setPreviewReadOnly,
@@ -950,6 +962,7 @@ export function TripProvider({ children }: { children: ReactNode }) {
       signIn,
       signUp,
       sendMagicLink,
+      signInWithGoogle,
       signOut,
       claimCurrentTrip,
       inviteMember,
@@ -997,6 +1010,7 @@ export function TripProvider({ children }: { children: ReactNode }) {
       tripMembers,
       membersSqlReady,
       canEdit,
+      canManageMembers,
       canViewBudget,
       previewReadOnly,
       setHideBudgetForViewers,
@@ -1004,6 +1018,7 @@ export function TripProvider({ children }: { children: ReactNode }) {
       signIn,
       signUp,
       sendMagicLink,
+      signInWithGoogle,
       signOut,
       claimCurrentTrip,
       inviteMember,

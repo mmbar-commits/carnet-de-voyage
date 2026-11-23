@@ -137,6 +137,24 @@ export async function signInWithMagicLink(
   return { ok: true };
 }
 
+export async function signInWithGoogleOAuth(): Promise<{ ok: boolean; error?: string }> {
+  const client = await getSupabaseClient();
+  if (!client) return { ok: false, error: 'Supabase non configuré.' };
+
+  const redirectTo =
+    typeof window !== 'undefined'
+      ? `${window.location.origin}${window.location.pathname}`
+      : undefined;
+
+  const { error } = await client.auth.signInWithOAuth({
+    provider: 'google',
+    options: redirectTo ? { redirectTo } : undefined,
+  });
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
 export async function signOutAuth(): Promise<void> {
   const client = await getSupabaseClient();
   if (!client) return;
@@ -144,15 +162,21 @@ export async function signOutAuth(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Trip Members & Roles (Option A — Postgres RLS)
+// Trip Members & Roles (Option A — Postgres RLS: admin / editor / viewer)
 // ---------------------------------------------------------------------------
+
+function normalizeMemberRole(raw: unknown): MemberRole {
+  if (raw === 'admin') return 'admin';
+  if (raw === 'editor') return 'editor';
+  return 'viewer';
+}
 
 interface MemberRow {
   id: string;
   family_code: string;
   email: string;
   user_id: string | null;
-  role: MemberRole;
+  role: string;
   created_at: string;
 }
 
@@ -222,12 +246,12 @@ export async function resolveTripAccess(
   const myTrips: { familyCode: string; role: MemberRole }[] = Array.isArray(linkedRows)
     ? linkedRows
         .filter(
-          (r): r is { family_code: string; role: MemberRole } =>
+          (r): r is { family_code: string; role: string } =>
             Boolean(r && typeof r.family_code === 'string')
         )
         .map((r) => ({
           familyCode: r.family_code,
-          role: r.role === 'editor' ? 'editor' : 'viewer',
+          role: normalizeMemberRole(r.role),
         }))
     : [];
 
@@ -258,7 +282,7 @@ export async function resolveTripAccess(
     familyCode: row.family_code,
     email: row.email,
     userId: row.user_id,
-    role: row.role === 'editor' ? 'editor' : 'viewer',
+    role: normalizeMemberRole(row.role),
     createdAt: row.created_at,
   }));
 
@@ -270,7 +294,7 @@ export async function resolveTripAccess(
   };
 }
 
-export async function claimTripAsEditor(familyCode: string): Promise<TripAccessRole> {
+export async function claimTripAsAdmin(familyCode: string): Promise<TripAccessRole> {
   const client = await getSupabaseClient();
   const normalized = normalizeFamilyCode(familyCode);
   if (!client || !normalized) return 'none';
@@ -283,7 +307,7 @@ export async function claimTripAsEditor(familyCode: string): Promise<TripAccessR
     throw new Error(error.message);
   }
 
-  if (data === 'editor' || data === 'viewer') return data;
+  if (data === 'admin' || data === 'editor' || data === 'viewer') return data;
   return 'none';
 }
 

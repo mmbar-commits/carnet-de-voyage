@@ -3,6 +3,7 @@ import { TRIP_DAYS } from '../data/days';
 import { INITIAL_EXPENSES, PAYMENT_METHODS } from '../data/expenses';
 import { INITIAL_CHECKLIST } from '../data/infos';
 import { INITIAL_STEPS } from '../data/steps';
+import { isValidTransportMode } from '../data/transports';
 import {
   buildMonogram,
   buildTripDays,
@@ -213,6 +214,17 @@ export function migrateTripState(
       );
     }
   }
+
+  steps = steps.map((step) => {
+    if (step.kind !== 'transport') return step;
+    return {
+      ...step,
+      kind: 'transport',
+      transportMode: isValidTransportMode(step.transportMode)
+        ? step.transportMode
+        : 'autre',
+    };
+  });
 
   const rawCurrencies = (parsed as Partial<TripState>).currencies;
   const currencies: TripCurrencies = {

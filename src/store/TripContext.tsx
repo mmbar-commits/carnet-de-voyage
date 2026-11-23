@@ -25,6 +25,7 @@ import type {
   ChecklistItem,
   ExchangeRates,
   Expense,
+  ExpenseCategory,
   Language,
   LanguagePreference,
   MemberRole,
@@ -1517,11 +1518,17 @@ export function TripProvider({ children }: { children: ReactNode }) {
 
         const nextExpenses = [...prev.expenses];
         if (typeof newStep.costGbp === 'number' && newStep.costGbp > 0) {
+          const linkedCategory: ExpenseCategory =
+            newStep.kind === 'transport'
+              ? 'transports'
+              : newStep.kind === 'repas'
+                ? 'repas'
+                : 'activites';
           nextExpenses.push({
             id: generateId('exp'),
             dayId: newStep.dayId,
             title: newStep.title,
-            category: 'activites',
+            category: linkedCategory,
             amountGbp: newStep.costGbp,
             paid: newStep.bookingStatus === 'reserve',
             note: newStep.costNote || 'Ajouté depuis le Planning',
@@ -1550,6 +1557,12 @@ export function TripProvider({ children }: { children: ReactNode }) {
         const existing = prev.steps.find((s) => s.id === stepId);
         if (!existing) return prev;
         const updatedStep: TripStep = { ...existing, ...patch };
+        const linkedCategory: ExpenseCategory =
+          updatedStep.kind === 'transport'
+            ? 'transports'
+            : updatedStep.kind === 'repas'
+              ? 'repas'
+              : 'activites';
 
         const nextSteps = prev.steps.map((s) => (s.id === stepId ? updatedStep : s));
         let nextExpenses = prev.expenses.map((exp) => {
@@ -1558,6 +1571,7 @@ export function TripProvider({ children }: { children: ReactNode }) {
             ...exp,
             dayId: updatedStep.dayId,
             title: updatedStep.title,
+            category: linkedCategory,
             amountGbp:
               typeof updatedStep.costGbp === 'number' ? updatedStep.costGbp : exp.amountGbp,
             note: updatedStep.costNote ?? exp.note,
@@ -1572,7 +1586,7 @@ export function TripProvider({ children }: { children: ReactNode }) {
               id: generateId('exp'),
               dayId: updatedStep.dayId,
               title: updatedStep.title,
-              category: 'activites',
+              category: linkedCategory,
               amountGbp: updatedStep.costGbp,
               paid: updatedStep.bookingStatus === 'reserve',
               note: updatedStep.costNote || 'Lié au Planning',

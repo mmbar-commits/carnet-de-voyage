@@ -34,13 +34,25 @@ export interface TripDay {
   criticalBanner?: CriticalBanner;
 }
 
-export type StepKind = 'activite' | 'repas';
+export type StepKind = 'activite' | 'repas' | 'transport';
+
+export type TransportMode =
+  | 'avion'
+  | 'train'
+  | 'metro'
+  | 'voiture'
+  | 'taxi'
+  | 'bus'
+  | 'ferry'
+  | 'marche'
+  | 'autre';
 
 export interface TripStep {
   id: string;
   dayId: string;
   order: number;
   kind?: StepKind;
+  transportMode?: TransportMode;
   timeStart: string;
   timeEnd?: string;
   title: string;

@@ -13,13 +13,18 @@ import {
 } from 'lucide-react';
 import { formatCurrencyAmount } from '../data/currencies';
 import {
+  getTransportModeLabel,
+  isValidTransportMode,
+} from '../data/transports';
+import {
   getBookingLabel,
   getDayLabel,
   getKidRatingLabel,
   UI_TEXT,
 } from '../i18n/translations';
 import { useTrip } from '../store/TripContext';
-import type { BookingStatus, TripStep } from '../types/trip';
+import type { BookingStatus, TransportMode, TripStep } from '../types/trip';
+import { TransportModeIcon } from './TransportModeIcon';
 
 const BOOKING_STYLE: Record<BookingStatus, string> = {
   a_reserver: 'border-[#B39258]/50 bg-[#F8F3E9] text-[#83662F]',
@@ -88,13 +93,22 @@ export function StepCard({
     state.meta.isLondonDefault
   );
   const isMeal = step.kind === 'repas';
+  const isTransport = step.kind === 'transport';
+  const transportMode: TransportMode = isValidTransportMode(step.transportMode)
+    ? step.transportMode
+    : 'autre';
 
   return (
     <article
       id={`step-card-${step.id}`}
-      data-kind={isMeal ? 'repas' : 'activite'}
+      data-kind={isMeal ? 'repas' : isTransport ? 'transport' : 'activite'}
+      data-transport-mode={isTransport ? transportMode : undefined}
       className={`rounded-2xl border px-4 transition-opacity ${
-        isMeal ? 'border-[#E6D4B8] bg-[#FBF5EA] py-3.5' : 'ivy-card py-4'
+        isMeal
+          ? 'border-[#E6D4B8] bg-[#FBF5EA] py-3.5'
+          : isTransport
+            ? 'border-[#D4DFD9] bg-[#F5F9F7] py-3.5'
+            : 'ivy-card py-4'
       } ${step.done ? 'opacity-60' : ''}`}
     >
       {/* Top quiet row */}
@@ -113,6 +127,16 @@ export function StepCard({
             <span className="inline-flex items-center gap-1 rounded-full bg-[#EFE1C6] px-2.5 py-0.5 text-[10.5px] font-medium text-[#7A531C]">
               <UtensilsCrossed className="h-2.5 w-2.5 stroke-[1.7]" />
               <span>{t.meal}</span>
+            </span>
+          )}
+
+          {isTransport && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#E4EFE9] px-2.5 py-0.5 text-[10.5px] font-medium text-[#143B2B]">
+              <TransportModeIcon
+                mode={transportMode}
+                className="h-2.5 w-2.5 stroke-[1.8]"
+              />
+              <span>{getTransportModeLabel(transportMode, lang)}</span>
             </span>
           )}
 
@@ -158,7 +182,9 @@ export function StepCard({
                   : 'border-[#143B2B] bg-[#143B2B] text-[#FAF8F4]'
                 : isMeal
                   ? 'border-[#D9C39F] bg-white/80 text-transparent hover:border-[#8C6226]'
-                  : 'border-[#DDD6C9] bg-white text-transparent hover:border-[#143B2B]'
+                  : isTransport
+                    ? 'border-[#C5D6CD] bg-white/85 text-transparent hover:border-[#143B2B]'
+                    : 'border-[#DDD6C9] bg-white text-transparent hover:border-[#143B2B]'
             }`}
           >
             <Check className="h-3.5 w-3.5 stroke-[2]" />
@@ -180,7 +206,11 @@ export function StepCard({
       {/* Editorial title */}
       <h3
         className={`font-editorial mt-2 font-medium leading-[1.22] ${
-          isMeal ? 'text-[20px] text-[#4E3514]' : 'text-[22px] text-[#143B2B]'
+          isMeal
+            ? 'text-[20px] text-[#4E3514]'
+            : isTransport
+              ? 'text-[20px] text-[#143B2B]'
+              : 'text-[22px] text-[#143B2B]'
         } ${step.done ? 'line-through decoration-[#B39258]/70' : ''}`}
       >
         {step.title}
@@ -190,7 +220,11 @@ export function StepCard({
       <div className="mt-1.5 flex items-center justify-between gap-2">
         <p
           className={`flex min-w-0 items-center gap-1.5 text-[12.5px] font-light ${
-            isMeal ? 'text-[#735A38]' : 'text-[#5F7067]'
+            isMeal
+              ? 'text-[#735A38]'
+              : isTransport
+                ? 'text-[#3D594B]'
+                : 'text-[#5F7067]'
           }`}
         >
           <MapPin className="h-3.5 w-3.5 shrink-0 stroke-[1.5] text-[#B39258]" />
@@ -206,7 +240,9 @@ export function StepCard({
           className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-normal transition ${
             isMeal
               ? 'border-[#E2CFAF] bg-white/80 text-[#5C3F17] hover:border-[#B39258]'
-              : 'border-[#ECE7DE] bg-[#FAF8F4] text-[#143B2B] hover:border-[#B39258]'
+              : isTransport
+                ? 'border-[#D4DFD9] bg-white/85 text-[#143B2B] hover:border-[#B39258]'
+                : 'border-[#ECE7DE] bg-[#FAF8F4] text-[#143B2B] hover:border-[#B39258]'
           }`}
         >
           <Navigation className="h-3 w-3 stroke-[1.6] text-[#B39258]" />
@@ -217,25 +253,61 @@ export function StepCard({
       {/* Compact meta bar + expand trigger */}
       <div
         className={`mt-2.5 flex items-center justify-between gap-2 border-t pt-2 ${
-          isMeal ? 'border-[#ECE0CA]' : 'border-[#F2EDE4]'
+          isMeal
+            ? 'border-[#ECE0CA]'
+            : isTransport
+              ? 'border-[#DFEAE4]'
+              : 'border-[#F2EDE4]'
         }`}
       >
-        <div className="flex flex-wrap items-center gap-2 text-[11.5px] font-light text-[#5F7067]">
-          <span>Aya · {getKidRatingLabel(step.ayaRating, lang)}</span>
-          <span className="text-[#D4CBB9]">•</span>
-          <span>Adam · {getKidRatingLabel(step.adamRating, lang)}</span>
-          {typeof step.costGbp === 'number' && (
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 text-[11.5px] font-light text-[#5F7067]">
+          {isTransport ? (
             <>
+              {step.transport ? (
+                <span className="inline-flex min-w-0 max-w-full items-center gap-1.5 text-[#3D594B]">
+                  <TransportModeIcon
+                    mode={transportMode}
+                    className="h-3 w-3 shrink-0 stroke-[1.6] text-[#143B2B]/75"
+                  />
+                  <span className="truncate">{step.transport}</span>
+                </span>
+              ) : (
+                <span className="text-[#5F7067]">{t.transport}</span>
+              )}
+              {typeof step.costGbp === 'number' && (
+                <>
+                  <span className="text-[#C5D6CD]">•</span>
+                  <span className="shrink-0 font-normal text-[#143B2B]">
+                    {step.costGbp === 0
+                      ? t.free
+                      : formatCurrencyAmount(
+                          step.costGbp,
+                          state.currencies.tripCurrency,
+                          locale
+                        )}
+                  </span>
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              <span>Aya · {getKidRatingLabel(step.ayaRating, lang)}</span>
               <span className="text-[#D4CBB9]">•</span>
-              <span className="font-normal text-[#143B2B]">
-                {step.costGbp === 0
-                  ? t.free
-                  : formatCurrencyAmount(
-                      step.costGbp,
-                      state.currencies.tripCurrency,
-                      locale
-                    )}
-              </span>
+              <span>Adam · {getKidRatingLabel(step.adamRating, lang)}</span>
+              {typeof step.costGbp === 'number' && (
+                <>
+                  <span className="text-[#D4CBB9]">•</span>
+                  <span className="font-normal text-[#143B2B]">
+                    {step.costGbp === 0
+                      ? t.free
+                      : formatCurrencyAmount(
+                          step.costGbp,
+                          state.currencies.tripCurrency,
+                          locale
+                        )}
+                  </span>
+                </>
+              )}
             </>
           )}
         </div>
@@ -258,10 +330,25 @@ export function StepCard({
 
       {/* Progressive disclosure */}
       {expanded && (
-        <div className="mt-3.5 space-y-3.5 border-t border-[#F2EDE4] pt-3.5">
+        <div
+          className={`mt-3.5 space-y-3.5 border-t pt-3.5 ${
+            isMeal
+              ? 'border-[#ECE0CA]'
+              : isTransport
+                ? 'border-[#DFEAE4]'
+                : 'border-[#F2EDE4]'
+          }`}
+        >
           {step.transport && (
             <p className="flex items-start gap-2 text-[12.5px] font-light leading-relaxed text-[#5F7067]">
-              <TrainFront className="mt-0.5 h-3.5 w-3.5 shrink-0 stroke-[1.5] text-[#B39258]" />
+              {isTransport ? (
+                <TransportModeIcon
+                  mode={transportMode}
+                  className="mt-0.5 h-3.5 w-3.5 shrink-0 stroke-[1.6] text-[#143B2B]"
+                />
+              ) : (
+                <TrainFront className="mt-0.5 h-3.5 w-3.5 shrink-0 stroke-[1.5] text-[#B39258]" />
+              )}
               <span>{step.transport}</span>
             </p>
           )}
@@ -270,16 +357,18 @@ export function StepCard({
             {step.description}
           </p>
 
-          <div className="space-y-2 rounded-xl bg-white/70 px-3.5 py-3 text-[12.5px] font-light leading-relaxed text-[#5F7067]">
-            <p>
-              <span className="font-medium text-[#143B2B]">Aya (8) — </span>
-              {step.ayaNote}
-            </p>
-            <p>
-              <span className="font-medium text-[#143B2B]">Adam (4) — </span>
-              {step.adamNote}
-            </p>
-          </div>
+          {!isTransport && (
+            <div className="space-y-2 rounded-xl bg-white/70 px-3.5 py-3 text-[12.5px] font-light leading-relaxed text-[#5F7067]">
+              <p>
+                <span className="font-medium text-[#143B2B]">Aya (8) — </span>
+                {step.ayaNote}
+              </p>
+              <p>
+                <span className="font-medium text-[#143B2B]">Adam (4) — </span>
+                {step.adamNote}
+              </p>
+            </div>
+          )}
 
           {step.costNote && (
             <p className="text-[12px] font-light text-[#83662F]">

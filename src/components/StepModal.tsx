@@ -1,14 +1,26 @@
 import { useState, type FormEvent } from 'react';
 import { Trash2, X } from 'lucide-react';
 import { getCurrencyChipLabel } from '../data/currencies';
-import { getDayLabel } from '../i18n/translations';
+import {
+  getTransportModeLabel,
+  isValidTransportMode,
+  TRANSPORT_MODES,
+} from '../data/transports';
+import {
+  getBookingLabel,
+  getDayLabel,
+  getKidRatingLabel,
+  UI_TEXT,
+} from '../i18n/translations';
 import { useTrip } from '../store/TripContext';
 import type {
   BookingStatus,
   KidCompatibility,
   StepKind,
+  TransportMode,
   TripStep,
 } from '../types/trip';
+import { TransportModeIcon } from './TransportModeIcon';
 
 interface StepModalProps {
   defaultDayId: string;
@@ -18,6 +30,15 @@ interface StepModalProps {
   onDelete?: () => void;
 }
 
+const BOOKING_OPTIONS: BookingStatus[] = [
+  'a_reserver',
+  'reserve',
+  'sur_place',
+  'entree_libre',
+];
+
+const KID_RATING_OPTIONS: KidCompatibility[] = ['Top', 'Adapté', 'Calme'];
+
 export function StepModal({
   defaultDayId,
   initialStep,
@@ -26,10 +47,17 @@ export function StepModal({
   onDelete,
 }: StepModalProps) {
   const { days, state, lang } = useTrip();
+  const t = UI_TEXT[lang];
+  const tm = t.stepModal;
   const tripCurrencyChip = getCurrencyChipLabel(state.currencies.tripCurrency);
 
   const [dayId, setDayId] = useState(initialStep?.dayId ?? defaultDayId);
   const [kind, setKind] = useState<StepKind>(initialStep?.kind ?? 'activite');
+  const [transportMode, setTransportMode] = useState<TransportMode>(
+    isValidTransportMode(initialStep?.transportMode)
+      ? initialStep.transportMode
+      : 'avion'
+  );
   const [timeStart, setTimeStart] = useState(initialStep?.timeStart ?? '10h30');
   const [timeEnd, setTimeEnd] = useState(initialStep?.timeEnd ?? '');
   const [title, setTitle] = useState(initialStep?.title ?? '');
@@ -43,36 +71,55 @@ export function StepModal({
     initialStep?.ayaRating ?? 'Top'
   );
   const [ayaNote, setAyaNote] = useState(
-    initialStep?.ayaNote ?? 'Activité adaptée à Aya (8 ans)'
+    initialStep?.ayaNote ?? tm.ayaDefaultNote
   );
   const [adamRating, setAdamRating] = useState<KidCompatibility>(
     initialStep?.adamRating ?? 'Adapté'
   );
   const [adamNote, setAdamNote] = useState(
-    initialStep?.adamNote ?? 'Activité pensée pour Adam (4 ans)'
+    initialStep?.adamNote ?? tm.adamDefaultNote
   );
   const [costGbp, setCostGbp] = useState(
     typeof initialStep?.costGbp === 'number' ? String(initialStep.costGbp) : ''
   );
   const [costNote, setCostNote] = useState(initialStep?.costNote ?? '');
 
+  const isTransport = kind === 'transport';
+  const showKidRatings = !isTransport && Boolean(state.meta.isLondonDefault);
+
+  const handleKindChange = (nextKind: StepKind) => {
+    setKind(nextKind);
+    if (nextKind === 'transport' && !isValidTransportMode(transportMode)) {
+      setTransportMode('avion');
+    }
+  };
+
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
     const parsedCost = costGbp.trim() === '' ? undefined : Number(costGbp);
+    const defaultDesc = isTransport
+      ? tm.defaultTransportDescription
+      : tm.defaultDescription;
+
     onSave({
       dayId,
       kind,
+      transportMode: isTransport ? transportMode : undefined,
       timeStart: timeStart.trim() || '10h00',
       timeEnd: timeEnd.trim() || undefined,
       title: title.trim(),
       location: location.trim() || state.meta.destination,
       transport: transport.trim() || undefined,
-      description: description.trim() || 'Étape familiale ajoutée au planning.',
-      ayaRating,
-      ayaNote: ayaNote.trim() || 'Adapté',
-      adamRating,
-      adamNote: adamNote.trim() || 'Adapté',
+      description: description.trim() || defaultDesc,
+      ayaRating: isTransport ? initialStep?.ayaRating ?? 'Adapté' : ayaRating,
+      ayaNote: isTransport
+        ? initialStep?.ayaNote ?? 'Adapté'
+        : ayaNote.trim() || 'Adapté',
+      adamRating: isTransport ? initialStep?.adamRating ?? 'Adapté' : adamRating,
+      adamNote: isTransport
+        ? initialStep?.adamNote ?? 'Adapté'
+        : adamNote.trim() || 'Adapté',
       bookingStatus,
       done: initialStep?.done ?? false,
       costGbp:
@@ -101,12 +148,12 @@ export function StepModal({
             id="step-modal-title"
             className="font-editorial text-[24px] font-semibold text-[#143B2B]"
           >
-            {initialStep ? 'Modifier l’étape' : 'Nouvelle étape'}
+            {initialStep ? t.editStep : t.newStep}
           </h2>
           <button
             type="button"
             onClick={onClose}
-            aria-label="Fermer"
+            aria-label={tm.close}
             className="flex h-8 w-8 items-center justify-center rounded-full border border-[#E7E2D8] bg-white text-[#143B2B]"
           >
             <X className="h-4 w-4" />
@@ -114,33 +161,74 @@ export function StepModal({
         </div>
 
         <form onSubmit={handleSubmit} className="mt-4 space-y-3.5 text-[13px]">
-          <div className="grid grid-cols-2 gap-2 rounded-xl border border-[#E7E2D8] bg-white p-1">
+          <div className="grid grid-cols-3 gap-1.5 rounded-xl border border-[#E7E2D8] bg-white p-1">
             {(
               [
-                ['activite', 'Activité'],
-                ['repas', 'Repas'],
+                ['activite', t.activity],
+                ['repas', t.meal],
+                ['transport', t.transport],
               ] as const
             ).map(([val, label]) => (
               <button
                 key={val}
+                id={`step-kind-${val}`}
                 type="button"
-                onClick={() => setKind(val)}
+                aria-pressed={kind === val}
+                onClick={() => handleKindChange(val)}
                 className={`rounded-lg py-1.5 text-[12px] font-medium transition ${
                   kind === val
                     ? val === 'repas'
                       ? 'bg-[#EFE1C6] text-[#5C3F17]'
-                      : 'bg-[#143B2B] text-[#FAF8F4]'
-                    : 'text-[#5F7067]'
+                      : val === 'transport'
+                        ? 'bg-[#E4EFE9] text-[#143B2B]'
+                        : 'bg-[#143B2B] text-[#FAF8F4]'
+                    : 'text-[#5F7067] hover:text-[#143B2B]'
                 }`}
               >
                 {label}
               </button>
             ))}
           </div>
-          <div className="grid grid-cols-3 gap-2.5">
-            <div className="col-span-3 sm:col-span-1">
+
+          {isTransport && (
+            <div id="transport-mode-selector">
+              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-[#4C6358]">
+                {tm.transportModeLabel}
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {TRANSPORT_MODES.map((mode) => {
+                  const active = transportMode === mode.id;
+                  return (
+                    <button
+                      key={mode.id}
+                      id={`transport-mode-${mode.id}`}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => setTransportMode(mode.id)}
+                      className={`flex min-w-0 items-center justify-center gap-1.5 rounded-xl border px-2 py-2 text-[11.5px] font-medium transition ${
+                        active
+                          ? 'border-[#143B2B] bg-[#143B2B] text-[#FAF8F4] shadow-xs'
+                          : 'border-[#ECE7DE] bg-[#FFFFFF] text-[#4C6358] hover:border-[#143B2B]/40 hover:text-[#143B2B]'
+                      }`}
+                    >
+                      <TransportModeIcon
+                        mode={mode.id}
+                        className="h-3.5 w-3.5 shrink-0 stroke-[1.7]"
+                      />
+                      <span className="truncate">
+                        {getTransportModeLabel(mode.id, lang)}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+            <div className="col-span-2 sm:col-span-1">
               <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-[#4C6358]">
-                Jour
+                {tm.day}
               </label>
               <select
                 value={dayId}
@@ -160,7 +248,7 @@ export function StepModal({
             </div>
             <div>
               <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-[#4C6358]">
-                Début
+                {tm.start}
               </label>
               <input
                 type="text"
@@ -172,7 +260,7 @@ export function StepModal({
             </div>
             <div>
               <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-[#4C6358]">
-                Fin
+                {tm.end}
               </label>
               <input
                 type="text"
@@ -186,14 +274,17 @@ export function StepModal({
 
           <div>
             <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-[#4C6358]">
-              Titre de l’étape *
+              {tm.titleLabel}
             </label>
             <input
+              id="step-title-input"
               type="text"
               required
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Ex. Visite, balade ou restaurant..."
+              placeholder={
+                isTransport ? tm.transportTitlePlaceholder : tm.titlePlaceholder
+              }
               className="w-full rounded-xl border border-[#E7E2D8] bg-white px-3 py-2 text-[#143B2B] focus:border-[#143B2B] focus:outline-none"
             />
           </div>
@@ -201,25 +292,35 @@ export function StepModal({
           <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-[#4C6358]">
-                Lieu / Quartier
+                {isTransport ? tm.transportLocationLabel : tm.locationLabel}
               </label>
               <input
+                id="step-location-input"
                 type="text"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
-                placeholder={state.meta.destination}
+                placeholder={
+                  isTransport
+                    ? tm.transportLocationPlaceholder
+                    : state.meta.destination
+                }
                 className="w-full rounded-xl border border-[#E7E2D8] bg-white px-3 py-2 text-[#143B2B] focus:border-[#143B2B] focus:outline-none"
               />
             </div>
             <div>
               <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-[#4C6358]">
-                Accès / Transport
+                {isTransport ? tm.transportDetailsLabel : tm.accessLabel}
               </label>
               <input
+                id="step-transport-input"
                 type="text"
                 value={transport}
                 onChange={(e) => setTransport(e.target.value)}
-                placeholder="À pied / Métro"
+                placeholder={
+                  isTransport
+                    ? tm.transportDetailsPlaceholder
+                    : tm.accessPlaceholder
+                }
                 className="w-full rounded-xl border border-[#E7E2D8] bg-white px-3 py-2 text-[#143B2B] focus:border-[#143B2B] focus:outline-none"
               />
             </div>
@@ -227,12 +328,16 @@ export function StepModal({
 
           <div>
             <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-[#4C6358]">
-              Description
+              {tm.descriptionLabel}
             </label>
             <textarea
+              id="step-description-input"
               rows={2}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
+              placeholder={
+                isTransport ? tm.transportDescriptionPlaceholder : undefined
+              }
               className="w-full rounded-xl border border-[#E7E2D8] bg-white px-3 py-2 text-[#143B2B] focus:border-[#143B2B] focus:outline-none"
             />
           </div>
@@ -240,24 +345,29 @@ export function StepModal({
           <div className="grid grid-cols-2 gap-2.5">
             <div>
               <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-[#4C6358]">
-                Statut réservation
+                {tm.bookingStatusLabel}
               </label>
               <select
+                id="step-booking-select"
                 value={bookingStatus}
-                onChange={(e) => setBookingStatus(e.target.value as BookingStatus)}
+                onChange={(e) =>
+                  setBookingStatus(e.target.value as BookingStatus)
+                }
                 className="w-full rounded-xl border border-[#E7E2D8] bg-white px-3 py-2 text-[#143B2B] focus:border-[#143B2B] focus:outline-none"
               >
-                <option value="a_reserver">À réserver</option>
-                <option value="reserve">Réservé</option>
-                <option value="sur_place">Sur place</option>
-                <option value="entree_libre">Entrée libre</option>
+                {BOOKING_OPTIONS.map((status) => (
+                  <option key={status} value={status}>
+                    {getBookingLabel(status, lang)}
+                  </option>
+                ))}
               </select>
             </div>
             <div>
               <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-[#4C6358]">
-                Coût prévu ({tripCurrencyChip})
+                {tm.costLabel} ({tripCurrencyChip})
               </label>
               <input
+                id="step-cost-input"
                 type="number"
                 min="0"
                 step="0.5"
@@ -271,60 +381,78 @@ export function StepModal({
 
           <div>
             <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-[#4C6358]">
-              Note tarifaire (optionnel)
+              {tm.costNoteLabel}
             </label>
             <input
               type="text"
               value={costNote}
               onChange={(e) => setCostNote(e.target.value)}
-              placeholder="Ex. Gratuit pour les enfants"
+              placeholder={
+                isTransport
+                  ? tm.transportCostNotePlaceholder
+                  : tm.costNotePlaceholder
+              }
               className="w-full rounded-xl border border-[#E7E2D8] bg-white px-3 py-2 text-[#143B2B] focus:border-[#143B2B] focus:outline-none"
             />
           </div>
 
-          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-            <div className="rounded-xl border border-[#E7E2D8] bg-white p-2.5">
-              <div className="mb-1.5 flex items-center justify-between">
-                <span className="text-[11px] font-bold text-[#143B2B]">Aya (8 ans)</span>
-                <select
-                  value={ayaRating}
-                  onChange={(e) => setAyaRating(e.target.value as KidCompatibility)}
-                  className="rounded-lg border border-[#E7E2D8] bg-[#FAF8F4] px-2 py-0.5 text-[11px]"
-                >
-                  <option value="Top">Top</option>
-                  <option value="Adapté">Adapté</option>
-                  <option value="Calme">Calme</option>
-                </select>
+          {showKidRatings && (
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+              <div className="rounded-xl border border-[#E7E2D8] bg-white p-2.5">
+                <div className="mb-1.5 flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-[#143B2B]">
+                    {tm.ayaLabel}
+                  </span>
+                  <select
+                    value={ayaRating}
+                    onChange={(e) =>
+                      setAyaRating(e.target.value as KidCompatibility)
+                    }
+                    className="rounded-lg border border-[#E7E2D8] bg-[#FAF8F4] px-2 py-0.5 text-[11px]"
+                  >
+                    {KID_RATING_OPTIONS.map((rating) => (
+                      <option key={rating} value={rating}>
+                        {getKidRatingLabel(rating, lang)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <input
+                  type="text"
+                  value={ayaNote}
+                  onChange={(e) => setAyaNote(e.target.value)}
+                  className="w-full rounded-lg border border-[#E7E2D8] bg-[#FAF8F4] px-2.5 py-1.5 text-[12px]"
+                />
               </div>
-              <input
-                type="text"
-                value={ayaNote}
-                onChange={(e) => setAyaNote(e.target.value)}
-                className="w-full rounded-lg border border-[#E7E2D8] bg-[#FAF8F4] px-2.5 py-1.5 text-[12px]"
-              />
-            </div>
 
-            <div className="rounded-xl border border-[#E7E2D8] bg-white p-2.5">
-              <div className="mb-1.5 flex items-center justify-between">
-                <span className="text-[11px] font-bold text-[#143B2B]">Adam (4 ans)</span>
-                <select
-                  value={adamRating}
-                  onChange={(e) => setAdamRating(e.target.value as KidCompatibility)}
-                  className="rounded-lg border border-[#E7E2D8] bg-[#FAF8F4] px-2 py-0.5 text-[11px]"
-                >
-                  <option value="Top">Top</option>
-                  <option value="Adapté">Adapté</option>
-                  <option value="Calme">Calme</option>
-                </select>
+              <div className="rounded-xl border border-[#E7E2D8] bg-white p-2.5">
+                <div className="mb-1.5 flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-[#143B2B]">
+                    {tm.adamLabel}
+                  </span>
+                  <select
+                    value={adamRating}
+                    onChange={(e) =>
+                      setAdamRating(e.target.value as KidCompatibility)
+                    }
+                    className="rounded-lg border border-[#E7E2D8] bg-[#FAF8F4] px-2 py-0.5 text-[11px]"
+                  >
+                    {KID_RATING_OPTIONS.map((rating) => (
+                      <option key={rating} value={rating}>
+                        {getKidRatingLabel(rating, lang)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <input
+                  type="text"
+                  value={adamNote}
+                  onChange={(e) => setAdamNote(e.target.value)}
+                  className="w-full rounded-lg border border-[#E7E2D8] bg-[#FAF8F4] px-2.5 py-1.5 text-[12px]"
+                />
               </div>
-              <input
-                type="text"
-                value={adamNote}
-                onChange={(e) => setAdamNote(e.target.value)}
-                className="w-full rounded-lg border border-[#E7E2D8] bg-[#FAF8F4] px-2.5 py-1.5 text-[12px]"
-              />
             </div>
-          </div>
+          )}
 
           <div className="flex items-center justify-between gap-2 pt-2">
             {initialStep && onDelete ? (
@@ -337,7 +465,7 @@ export function StepModal({
                 className="inline-flex items-center gap-1.5 rounded-xl border border-[#7C2D36]/30 bg-[#FDF3F4] px-3.5 py-2.5 text-[12.5px] font-semibold text-[#7C2D36]"
               >
                 <Trash2 className="h-3.5 w-3.5" />
-                Supprimer
+                {t.delete}
               </button>
             ) : (
               <span />
@@ -348,13 +476,14 @@ export function StepModal({
                 onClick={onClose}
                 className="rounded-xl border border-[#E7E2D8] bg-white px-4 py-2.5 text-[12.5px] font-semibold text-[#4C6358]"
               >
-                Annuler
+                {t.cancel}
               </button>
               <button
+                id="step-save-btn"
                 type="submit"
                 className="rounded-xl bg-[#143B2B] px-5 py-2.5 text-[12.5px] font-semibold text-[#FAF8F4] shadow-xs hover:bg-[#1E543E]"
               >
-                Enregistrer
+                {t.save}
               </button>
             </div>
           </div>

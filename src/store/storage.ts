@@ -25,18 +25,20 @@ import type {
 } from '../types/trip';
 
 export const STATE_VERSION = 6;
-export const STORAGE_KEY = `londres-noel-2026:state:v${STATE_VERSION}`;
+export const STORAGE_KEY = `carnet-de-voyage:state:v${STATE_VERSION}`;
 const LEGACY_KEYS = [
+  'londres-noel-2026:state:v6',
   'londres-noel-2026:state:v5',
   'londres-noel-2026:state:v4',
   'londres-noel-2026:state:v3',
   'londres-noel-2026:state:v2',
   'londres-noel-2026:state:v1',
 ];
-export const TRIPS_INDEX_KEY = 'londres-noel-2026:trips:index:v1';
-export const FAMILY_CODE_KEY = 'londres-noel-2026:family-code';
-export const SELECTED_DAY_KEY = 'londres-noel-2026:selected-day';
-export const LANGUAGE_KEY = 'londres-noel-2026:lang';
+export const TRIPS_INDEX_KEY = 'carnet-de-voyage:trips:index:v1';
+export const FAMILY_CODE_KEY = 'carnet-de-voyage:family-code';
+export const SELECTED_DAY_KEY = 'carnet-de-voyage:selected-day';
+export const LANGUAGE_KEY = 'carnet-de-voyage:lang';
+const LEGACY_LANGUAGE_KEY = 'londres-noel-2026:lang';
 
 export const DEFAULT_RATES: ExchangeRates = {
   madPerGbp: 12.6,
@@ -353,7 +355,7 @@ export function saveTripState(state: TripState): void {
 function getTripStorageKey(code: string): string {
   return code === DEFAULT_LONDON_TRIP_ID
     ? STORAGE_KEY
-    : `londres-noel-2026:trip:${code}`;
+    : `carnet-de-voyage:trip:${code}`;
 }
 
 export function loadTripStateForCode(code: string): TripState | null {
@@ -447,7 +449,7 @@ export function removeTripFromIndex(tripId: string): TripSummary[] {
 // Per-user scoped storage (strict multi-user privacy isolation)
 // ---------------------------------------------------------------------------
 
-const USER_STORAGE_PREFIX = 'londres-noel-2026:u:';
+const USER_STORAGE_PREFIX = 'carnet-de-voyage:u:';
 
 function getUserPrefix(userId: string): string {
   return `${USER_STORAGE_PREFIX}${userId}:`;
@@ -511,12 +513,16 @@ export function saveUserTripState(userId: string, code: string, state: TripState
 export function clearUserCachedTrips(userId?: string | null): void {
   try {
     const userPrefix = userId ? getUserPrefix(userId) : null;
+    const legacyUserPrefix = userId ? `londres-noel-2026:u:${userId}:` : null;
     const keysToRemove = new Set<string>([
       STORAGE_KEY,
       ...LEGACY_KEYS,
       TRIPS_INDEX_KEY,
       FAMILY_CODE_KEY,
       SELECTED_DAY_KEY,
+      'londres-noel-2026:trips:index:v1',
+      'londres-noel-2026:family-code',
+      'londres-noel-2026:selected-day',
     ]);
 
     for (let i = 0; i < window.localStorage.length; i++) {
@@ -524,6 +530,10 @@ export function clearUserCachedTrips(userId?: string | null): void {
       if (!key) continue;
       if (
         (userPrefix && key.startsWith(userPrefix)) ||
+        (legacyUserPrefix && key.startsWith(legacyUserPrefix)) ||
+        key.startsWith('carnet-de-voyage:trip:') ||
+        key.startsWith('carnet-de-voyage:state:') ||
+        key.startsWith('carnet-de-voyage:trips:') ||
         key.startsWith('londres-noel-2026:trip:') ||
         key.startsWith('londres-noel-2026:state:') ||
         key.startsWith('londres-noel-2026:trips:')
@@ -595,7 +605,9 @@ export function resolveLanguage(pref: LanguagePreference): Language {
 
 export function loadLanguagePreference(): LanguagePreference {
   try {
-    const val = window.localStorage.getItem(LANGUAGE_KEY);
+    const val =
+      window.localStorage.getItem(LANGUAGE_KEY) ??
+      window.localStorage.getItem(LEGACY_LANGUAGE_KEY);
     if (val === 'fr' || val === 'en') return val;
     return 'auto';
   } catch {

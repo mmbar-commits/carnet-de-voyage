@@ -4,7 +4,7 @@ import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
-  base: '/londres-noel-2026/',
+  base: '/carnet-de-voyage/',
   plugins: [
     react(),
     tailwindcss(),
@@ -28,8 +28,8 @@ export default defineConfig({
         display: 'standalone',
         orientation: 'portrait',
         lang: 'fr',
-        scope: '/londres-noel-2026/',
-        start_url: '/londres-noel-2026/',
+        scope: '/carnet-de-voyage/',
+        start_url: '/carnet-de-voyage/',
         icons: [
           {
             src: 'pwa-192x192.png',

@@ -70,4 +70,4 @@ In **Supabase Dashboard → Authentication → Emails (Templates)**, paste the e
 
 ## Redirect URL Reminder
 
-In **Supabase Dashboard → Authentication → URL Configuration**, make sure your production URL (`https://mmbar-commits.github.io/londres-noel-2026/`) is set as **Site URL** and included in **Redirect URLs** so Magic Links, Signup Confirmations, and Password Reset links return directly into the app (triggering the built-in `PASSWORD_RECOVERY` screen for password resets).
+In **Supabase Dashboard → Authentication → URL Configuration**, make sure your production URL (`https://mmbar-commits.github.io/carnet-de-voyage/`) is set as **Site URL** and included in **Redirect URLs** so Magic Links, Signup Confirmations, and Password Reset links return directly into the app (triggering the built-in `PASSWORD_RECOVERY` screen for password resets).

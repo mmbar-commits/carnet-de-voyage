@@ -30,7 +30,7 @@ export interface WeatherTripMeta {
 export const WEATHER_TTL_MS = 2 * 60 * 60 * 1000;
 
 export function getWeatherStorageKey(tripId: string): string {
-  return `londres-noel-2026:weather:v2:${tripId || 'LDN-NOEL-2026'}`;
+  return `carnet-de-voyage:weather:v2:${tripId || 'default'}`;
 }
 
 const VALID_KINDS: ReadonlySet<WeatherKind> = new Set([

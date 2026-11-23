@@ -5,7 +5,6 @@ import {
   CheckSquare,
   ChevronDown,
   ChevronUp,
-  Cloud,
   Coins,
   Copy,
   CreditCard,
@@ -21,9 +20,7 @@ import {
   Pencil,
   Plane,
   Plus,
-  RefreshCw,
   RotateCcw,
-  Share2,
   Shield,
   Smartphone,
   Square,
@@ -34,7 +31,6 @@ import {
 } from 'lucide-react';
 import {
   CURRENCY_OPTIONS,
-  formatCurrencyAmount,
   getApproxRate,
   getCurrencyChipLabel,
 } from '../data/currencies';
@@ -42,7 +38,6 @@ import {
   ACCOMMODATION_INFO,
   FLIGHT_INFO,
   SUPABASE_AUTH_SQL_SNIPPET,
-  SUPABASE_SQL_SNIPPET,
   TOWER_HAMLETS_MEMO,
 } from '../data/infos';
 import { UI_TEXT } from '../i18n/translations';
@@ -74,7 +69,6 @@ type SectionKey =
   | 'share'
   | 'account'
   | 'language'
-  | 'sync'
   | 'pwa';
 
 type DevicePlatform = 'iphone' | 'ipad' | 'android' | 'desktop';
@@ -137,8 +131,6 @@ export function InfosTab() {
     addPracticalNote,
     updatePracticalNote,
     deletePracticalNote,
-    setFamilyCode,
-    triggerManualSync,
     exportTripJson,
     importTripJson,
     resetTripState,
@@ -167,13 +159,11 @@ export function InfosTab() {
     share: false,
     account: false,
     language: false,
-    sync: false,
     pwa: false,
   });
 
   const [copiedAddress, setCopiedAddress] = useState(false);
-  const [copiedWhatsapp, setCopiedWhatsapp] = useState(false);
-  const [copiedSql, setCopiedSql] = useState(false);
+  const [copiedTripCode, setCopiedTripCode] = useState(false);
   const [copiedAuthSql, setCopiedAuthSql] = useState(false);
   const [newCheckLabel, setNewCheckLabel] = useState('');
   const [newPersonName, setNewPersonName] = useState('');
@@ -191,10 +181,8 @@ export function InfosTab() {
   const [inviteRole, setInviteRole] = useState<MemberRole>('viewer');
   const [accountActionBusy, setAccountActionBusy] = useState(false);
   const [accountFeedback, setAccountFeedback] = useState<string | null>(null);
-  const [familyInput, setFamilyInput] = useState(syncStatus.familyCode);
   const [importFeedback, setImportFeedback] = useState<string | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
-  const [showSqlHelp, setShowSqlHelp] = useState(false);
   const [installPrompt, setInstallPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
   const [devicePlatform] = useState<DevicePlatform>(() => detectDevicePlatform());
@@ -204,10 +192,6 @@ export function InfosTab() {
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const supabaseReady = isSupabaseConfigured();
-
-  useEffect(() => {
-    setFamilyInput(syncStatus.familyCode);
-  }, [syncStatus.familyCode]);
 
   useEffect(() => {
     setRateInput(String(sameCurrency ? 1 : state.rates.madPerGbp));
@@ -267,39 +251,6 @@ export function InfosTab() {
     } catch {
       // Ignore
     }
-  };
-
-  const buildWhatsappSummary = () => {
-    const totalTrip = state.expenses.reduce((s, e) => s + e.amountGbp, 0);
-    const totalTripFormatted = formatCurrencyAmount(totalTrip, tripCurrency, locale);
-    const budgetLine = sameCurrency
-      ? `Budget estimé : ${totalTripFormatted}`
-      : `Budget estimé : ${totalTripFormatted} (~${formatCurrencyAmount(
-          totalTrip * activeRate,
-          homeCurrency,
-          locale
-        )})`;
-
-    if (isLondon) {
-      return [
-        'Londres en Famille — Noël 2026 (22 déc. → 1er jan.)',
-        `Aller RAM AT800 : 22 déc. CMN T1 13h05 → LHR T4 15h25`,
-        `Retour RAM AT801 : 1er jan. LHR T4 17h15 → CMN T2 21h30 (cabine uniquement)`,
-        `Appartement : ${ACCOMMODATION_INFO.fullAddress}`,
-        `Tower Hamlets £1 : 27 déc. (Tour de Londres + Tower Bridge)`,
-        `1er jan. : Piccadilly Line depuis Hyde Park Corner vers 13h45 (zéro taxi)`,
-        budgetLine,
-      ].join('\n');
-    }
-
-    const noteLines = state.practicalNotes
-      .slice(0, 4)
-      .map((n) => `${n.title} : ${n.content}`);
-    return [
-      `${state.meta.title} (${state.meta.subtitle})`,
-      ...noteLines,
-      budgetLine,
-    ].join('\n');
   };
 
   const handleExportJson = () => {
@@ -1422,6 +1373,41 @@ export function InfosTab() {
                   </>
                 ) : (
                   <>
+                    {/* Trip code for joining / sharing */}
+                    {membersSqlReady && tripRole !== 'none' && (
+                      <div className="flex items-center justify-between gap-2 rounded-xl border border-[#ECE7DE] bg-[#FAF8F4] px-3 py-2">
+                        <div className="min-w-0">
+                          <p className="text-[10.5px] font-normal uppercase tracking-wider text-[#8F7038]">
+                            {t.infos.tripCodeLabel}
+                          </p>
+                          <p
+                            id="trip-code-value"
+                            className="truncate text-[12.5px] font-medium uppercase tracking-wider text-[#143B2B]"
+                          >
+                            {syncStatus.familyCode}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          id="copy-trip-code-btn"
+                          onClick={() =>
+                            void copyText(syncStatus.familyCode, () => {
+                              setCopiedTripCode(true);
+                              window.setTimeout(() => setCopiedTripCode(false), 1800);
+                            })
+                          }
+                          className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-[#ECE7DE] bg-white px-2.5 py-1.5 text-[11px] font-normal text-[#143B2B]"
+                        >
+                          {copiedTripCode ? (
+                            <Check className="h-3 w-3 text-[#143B2B]" />
+                          ) : (
+                            <Copy className="h-3 w-3 stroke-[1.5] text-[#B39258]" />
+                          )}
+                          <span>{copiedTripCode ? t.infos.copied : t.infos.copy}</span>
+                        </button>
+                      </div>
+                    )}
+
                     {/* Case 1: Option A SQL migration not executed yet */}
                     {!membersSqlReady && (
                       <div className="space-y-2 rounded-xl border border-[#E2D6BE] bg-[#F8F3E9] p-3 text-[#143B2B]">
@@ -1689,96 +1675,69 @@ export function InfosTab() {
           </article>
         )}
 
-        {/* 5. Partage & Sauvegarde */}
-        <article className="ivy-card overflow-hidden rounded-2xl">
-          <button
-            type="button"
-            id="infos-toggle-share"
-            onClick={() => toggleSection('share')}
-            className="flex w-full items-center justify-between gap-2 px-4 py-3.5 text-left"
-          >
-            <div className="flex items-center gap-2.5">
-              <Share2 className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
-              <h3 className="font-editorial text-[21px] font-normal text-[#143B2B]">
-                {t.infos.shareTitle}
-              </h3>
-            </div>
-            {openSections.share ? (
-              <ChevronUp className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
-            ) : (
-              <ChevronDown className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
-            )}
-          </button>
-
-          {openSections.share && (
-            <div className="space-y-2.5 border-t border-[#F2EDE4] px-4 py-3.5">
-              <div className="grid grid-cols-2 gap-2">
-                <a
-                  href={`https://wa.me/?text=${encodeURIComponent(
-                    buildWhatsappSummary()
-                  )}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#143B2B] py-2.5 text-[12px] font-normal text-[#FAF8F4]"
-                >
-                  <Share2 className="h-3.5 w-3.5 stroke-[1.5] text-[#D7BD8A]" />
-                  <span>WhatsApp</span>
-                </a>
-                <button
-                  type="button"
-                  onClick={() =>
-                    void copyText(buildWhatsappSummary(), () => {
-                      setCopiedWhatsapp(true);
-                      window.setTimeout(() => setCopiedWhatsapp(false), 1800);
-                    })
-                  }
-                  className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#ECE7DE] bg-[#FAF8F4] py-2.5 text-[12px] font-normal text-[#143B2B]"
-                >
-                  <Copy className="h-3.5 w-3.5 stroke-[1.5] text-[#B39258]" />
-                  <span>
-                    {copiedWhatsapp ? t.infos.copied : t.infos.copySummary}
-                  </span>
-                </button>
+        {/* 5. Sauvegarde (Admin uniquement) */}
+        {canEdit && (tripRole === 'admin' || tripRole === 'unclaimed') && (
+          <article className="ivy-card overflow-hidden rounded-2xl">
+            <button
+              type="button"
+              id="infos-toggle-share"
+              onClick={() => toggleSection('share')}
+              className="flex w-full items-center justify-between gap-2 px-4 py-3.5 text-left"
+            >
+              <div className="flex items-center gap-2.5">
+                <Download className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+                <h3 className="font-editorial text-[21px] font-normal text-[#143B2B]">
+                  {t.infos.shareTitle}
+                </h3>
               </div>
-
-              <div className={canEdit ? 'grid grid-cols-2 gap-2' : ''}>
-                <button
-                  type="button"
-                  onClick={handleExportJson}
-                  className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-[#ECE7DE] bg-white py-2 text-[12px] font-light text-[#143B2B]"
-                >
-                  <Download className="h-3.5 w-3.5 stroke-[1.5] text-[#B39258]" />
-                  <span>{t.infos.exportJson}</span>
-                </button>
-                {canEdit && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#ECE7DE] bg-white py-2 text-[12px] font-light text-[#143B2B]"
-                    >
-                      <Upload className="h-3.5 w-3.5 stroke-[1.5] text-[#B39258]" />
-                      <span>{t.infos.importJson}</span>
-                    </button>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="application/json,.json"
-                      onChange={handleImportFile}
-                      className="hidden"
-                    />
-                  </>
-                )}
-              </div>
-
-              {importFeedback && (
-                <p className="text-[12px] font-light text-[#143B2B]">
-                  {importFeedback}
-                </p>
+              {openSections.share ? (
+                <ChevronUp className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
+              ) : (
+                <ChevronDown className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
               )}
+            </button>
 
-              {canEdit && (tripRole === 'admin' || tripRole === 'unclaimed') && (
-                <div className="flex items-center justify-between pt-1">
+            {openSections.share && (
+              <div className="space-y-3 border-t border-[#F2EDE4] px-4 py-3.5">
+                <p className="text-[12.5px] font-light leading-relaxed text-[#5F7067]">
+                  {t.infos.backupDesc}
+                </p>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    id="backup-export-json-btn"
+                    onClick={handleExportJson}
+                    className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-[#ECE7DE] bg-[#FAF8F4] py-2.5 text-[12px] font-normal text-[#143B2B] transition hover:border-[#B39258]"
+                  >
+                    <Download className="h-3.5 w-3.5 stroke-[1.5] text-[#B39258]" />
+                    <span>{t.infos.exportJson}</span>
+                  </button>
+                  <button
+                    type="button"
+                    id="backup-import-json-btn"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#ECE7DE] bg-white py-2.5 text-[12px] font-normal text-[#143B2B] transition hover:border-[#B39258]"
+                  >
+                    <Upload className="h-3.5 w-3.5 stroke-[1.5] text-[#B39258]" />
+                    <span>{t.infos.importJson}</span>
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="application/json,.json"
+                    onChange={handleImportFile}
+                    className="hidden"
+                  />
+                </div>
+
+                {importFeedback && (
+                  <p className="text-[12px] font-light text-[#143B2B]">
+                    {importFeedback}
+                  </p>
+                )}
+
+                <div className="flex items-center justify-between border-t border-[#F2EDE4] pt-2.5">
                   <span className="text-[11.5px] font-light text-[#5F7067]">
                     {t.infos.resetLabel}
                   </span>
@@ -1813,10 +1772,10 @@ export function InfosTab() {
                     </button>
                   )}
                 </div>
-              )}
-            </div>
-          )}
-        </article>
+              </div>
+            )}
+          </article>
+        )}
       </div>
 
       {/* ================================================= */}
@@ -1983,121 +1942,6 @@ export function InfosTab() {
                 )}
                 <p>{t.infos.languageContentNote}</p>
               </div>
-            </div>
-          )}
-        </article>
-
-        {/* 3. Synchro multi-appareils */}
-        <article className="ivy-card overflow-hidden rounded-2xl">
-          <button
-            type="button"
-            id="infos-toggle-sync"
-            onClick={() => toggleSection('sync')}
-            className="flex w-full items-center justify-between gap-2 px-4 py-3.5 text-left"
-          >
-            <div className="flex items-center gap-2.5">
-              <Cloud className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
-              <h3 className="font-editorial text-[21px] font-normal text-[#143B2B]">
-                {t.infos.syncTitle}
-              </h3>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-light text-[#5F7067]">
-                {supabaseReady ? t.infos.syncCloud : t.infos.syncLocal}
-              </span>
-              {openSections.sync ? (
-                <ChevronUp className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
-              ) : (
-                <ChevronDown className="h-4 w-4 stroke-[1.5] text-[#B39258]" />
-              )}
-            </div>
-          </button>
-
-          {openSections.sync && (
-            <div className="space-y-3 border-t border-[#F2EDE4] px-4 py-3.5 text-[12.5px] font-light text-[#5F7067]">
-              <p className="leading-relaxed">
-                {supabaseReady ? t.infos.syncDescCloud : t.infos.syncDescLocal}
-              </p>
-              <div className="flex gap-2">
-                <input
-                  id="family-code-input"
-                  type="text"
-                  value={familyInput}
-                  onChange={(e) => setFamilyInput(e.target.value)}
-                  className="min-w-0 flex-1 rounded-xl border border-[#ECE7DE] bg-[#FAF8F4] px-3 py-2 text-[12.5px] font-medium uppercase tracking-wider text-[#143B2B]"
-                />
-                <button
-                  type="button"
-                  onClick={() => setFamilyCode(familyInput)}
-                  className="rounded-xl bg-[#143B2B] px-3.5 py-2 text-[12px] font-normal text-[#FAF8F4]"
-                >
-                  OK
-                </button>
-                {supabaseReady && (
-                  <button
-                    type="button"
-                    onClick={() => void triggerManualSync()}
-                    aria-label="Sync now"
-                    className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#ECE7DE] bg-white text-[#143B2B]"
-                  >
-                    <RefreshCw
-                      className={`h-4 w-4 stroke-[1.5] ${
-                        syncStatus.mode === 'syncing'
-                          ? 'animate-spin text-[#B39258]'
-                          : ''
-                      }`}
-                    />
-                  </button>
-                )}
-              </div>
-              {supabaseReady &&
-                syncStatus.mode === 'synced' &&
-                syncStatus.lastSyncedAt && (
-                  <p className="text-[11.5px] font-normal text-[#143B2B]">
-                    ✓ {t.infos.syncedAt}{' '}
-                    {new Date(syncStatus.lastSyncedAt).toLocaleTimeString(
-                      lang === 'fr' ? 'fr-FR' : 'en-GB',
-                      { hour: '2-digit', minute: '2-digit' }
-                    )}
-                  </p>
-                )}
-              {supabaseReady && syncStatus.mode === 'error' && (
-                <p className="rounded-xl bg-[#FCF5F5] px-3 py-2 text-[11.5px] text-[#7C2D36]">
-                  {t.infos.syncErrorPrefix} :{' '}
-                  {syncStatus.errorMessage || 'trip_sync table missing'}
-                </p>
-              )}
-              {(!supabaseReady || syncStatus.mode === 'error') && (
-                <div>
-                  <button
-                    type="button"
-                    onClick={() => setShowSqlHelp((v) => !v)}
-                    className="text-[11.5px] font-normal text-[#8F7038]"
-                  >
-                    {showSqlHelp ? t.infos.hideSql : t.infos.showSql}
-                  </button>
-                  {showSqlHelp && (
-                    <div className="mt-2 rounded-xl bg-[#FAF8F4] p-3">
-                      <pre className="overflow-x-auto text-[10.5px] leading-relaxed text-[#143B2B]">
-                        {SUPABASE_SQL_SNIPPET}
-                      </pre>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          void copyText(SUPABASE_SQL_SNIPPET, () => {
-                            setCopiedSql(true);
-                            window.setTimeout(() => setCopiedSql(false), 1800);
-                          })
-                        }
-                        className="mt-2 inline-flex items-center gap-1 text-[11px] font-normal text-[#143B2B]"
-                      >
-                        <Copy className="h-3 w-3 text-[#B39258]" />
-                        <span>{copiedSql ? t.infos.copied : t.infos.copy}</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
           )}
         </article>

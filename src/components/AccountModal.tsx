@@ -3,8 +3,6 @@ import { Lock, Mail, Sparkles, X } from 'lucide-react';
 import { UI_TEXT } from '../i18n/translations';
 import { useTrip } from '../store/TripContext';
 
-type AuthMode = 'login' | 'signup' | 'magic';
-
 export function AccountModal() {
   const {
     lang,
@@ -15,7 +13,8 @@ export function AccountModal() {
     sendMagicLink,
   } = useTrip();
 
-  const [mode, setMode] = useState<AuthMode>('login');
+  const [tab, setTab] = useState<'login' | 'signup'>('login');
+  const [useMagicLink, setUseMagicLink] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -25,11 +24,19 @@ export function AccountModal() {
   if (!accountModalOpen) return null;
 
   const t = UI_TEXT[lang];
+  const isMagic = tab === 'login' && useMagicLink;
 
   const handleClose = () => {
     setErrorMsg(null);
     setSuccessMsg(null);
     setAccountModalOpen(false);
+  };
+
+  const switchTab = (next: 'login' | 'signup') => {
+    setTab(next);
+    if (next === 'signup') setUseMagicLink(false);
+    setErrorMsg(null);
+    setSuccessMsg(null);
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -42,14 +49,14 @@ export function AccountModal() {
 
     setBusy(true);
     try {
-      if (mode === 'magic') {
+      if (isMagic) {
         const res = await sendMagicLink(trimmedEmail);
         if (!res.ok) {
           setErrorMsg(res.error || 'Error');
         } else {
           setSuccessMsg(t.auth.magicSent);
         }
-      } else if (mode === 'signup') {
+      } else if (tab === 'signup') {
         const res = await signUp(trimmedEmail, password);
         if (!res.ok) {
           setErrorMsg(res.error || 'Error');
@@ -72,11 +79,11 @@ export function AccountModal() {
   };
 
   const title =
-    mode === 'login'
-      ? t.auth.modalLoginTitle
-      : mode === 'signup'
-        ? t.auth.modalSignUpTitle
-        : t.auth.modalMagicTitle;
+    tab === 'signup'
+      ? t.auth.modalSignUpTitle
+      : isMagic
+        ? t.auth.modalMagicTitle
+        : t.auth.modalLoginTitle;
 
   return (
     <div
@@ -109,6 +116,42 @@ export function AccountModal() {
           </button>
         </div>
 
+        {/* Clear segmented tabs: Connexion vs Créer un compte */}
+        <div
+          role="tablist"
+          aria-label={t.auth.sectionTitle}
+          className="mt-4 grid grid-cols-2 gap-1 rounded-2xl border border-[#ECE7DE] bg-white p-1"
+        >
+          <button
+            type="button"
+            role="tab"
+            id="auth-tab-login"
+            aria-selected={tab === 'login'}
+            onClick={() => switchTab('login')}
+            className={`rounded-xl py-2 text-[12px] transition ${
+              tab === 'login'
+                ? 'bg-[#143B2B] font-medium text-[#FAF8F4]'
+                : 'font-light text-[#5F7067] hover:text-[#143B2B]'
+            }`}
+          >
+            {t.auth.modalLoginTitle}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            id="auth-tab-signup"
+            aria-selected={tab === 'signup'}
+            onClick={() => switchTab('signup')}
+            className={`rounded-xl py-2 text-[12px] transition ${
+              tab === 'signup'
+                ? 'bg-[#143B2B] font-medium text-[#FAF8F4]'
+                : 'font-light text-[#5F7067] hover:text-[#143B2B]'
+            }`}
+          >
+            {t.auth.modalSignUpTitle}
+          </button>
+        </div>
+
         <form onSubmit={(e) => void handleSubmit(e)} className="mt-4 space-y-3.5">
           <div>
             <label
@@ -132,7 +175,7 @@ export function AccountModal() {
             </div>
           </div>
 
-          {mode !== 'magic' && (
+          {!isMagic && (
             <div>
               <label
                 htmlFor="auth-password-input"
@@ -147,7 +190,7 @@ export function AccountModal() {
                   type="password"
                   required
                   minLength={6}
-                  autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+                  autoComplete={tab === 'signup' ? 'new-password' : 'current-password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full rounded-xl border border-[#ECE7DE] bg-white py-2.5 pr-3 pl-9 text-[13.5px] font-light text-[#143B2B] focus:border-[#143B2B] focus:outline-none"
@@ -174,58 +217,39 @@ export function AccountModal() {
             disabled={busy}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#143B2B] py-2.5 text-[13px] font-normal text-[#FAF8F4] transition hover:bg-[#1E543E] disabled:opacity-50"
           >
-            {mode === 'magic' && <Sparkles className="h-3.5 w-3.5 text-[#D7BD8A]" />}
+            {isMagic && <Sparkles className="h-3.5 w-3.5 text-[#D7BD8A]" />}
             <span>
               {busy
                 ? '...'
-                : mode === 'login'
-                  ? t.auth.submitLogin
-                  : mode === 'signup'
-                    ? t.auth.submitSignUp
-                    : t.auth.submitMagic}
+                : tab === 'signup'
+                  ? t.auth.submitSignUp
+                  : isMagic
+                    ? t.auth.submitMagic
+                    : t.auth.submitLogin}
             </span>
           </button>
         </form>
 
-        <div className="mt-4 space-y-2 border-t border-[#ECE7DE] pt-3.5 text-center text-[12px]">
-          {mode !== 'signup' ? (
+        {/* Passwordless sign-in option — clearly part of Connexion only */}
+        {tab === 'login' && (
+          <div className="mt-3.5 text-center">
             <button
               type="button"
+              id="auth-toggle-magic-btn"
               onClick={() => {
-                setMode('signup');
+                setUseMagicLink((v) => !v);
                 setErrorMsg(null);
                 setSuccessMsg(null);
               }}
-              className="block w-full font-normal text-[#143B2B] underline decoration-[#B39258]/70 underline-offset-2"
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#ECE7DE] bg-white px-3.5 py-2 text-[12px] font-normal text-[#143B2B] transition hover:border-[#B39258]"
             >
-              {t.auth.switchToSignUp}
+              <Sparkles className="h-3.5 w-3.5 stroke-[1.5] text-[#B39258]" />
+              <span>
+                {isMagic ? t.auth.switchToPassword : t.auth.switchToMagic}
+              </span>
             </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => {
-                setMode('login');
-                setErrorMsg(null);
-                setSuccessMsg(null);
-              }}
-              className="block w-full font-normal text-[#143B2B] underline decoration-[#B39258]/70 underline-offset-2"
-            >
-              {t.auth.switchToLogin}
-            </button>
-          )}
-
-          <button
-            type="button"
-            onClick={() => {
-              setMode(mode === 'magic' ? 'login' : 'magic');
-              setErrorMsg(null);
-              setSuccessMsg(null);
-            }}
-            className="block w-full font-light text-[#5F7067] hover:text-[#143B2B]"
-          >
-            {mode === 'magic' ? t.auth.switchToPassword : t.auth.switchToMagic}
-          </button>
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

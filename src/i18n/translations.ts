@@ -138,8 +138,8 @@ export const UI_TEXT = {
       submitMagic: 'Envoyer le lien de connexion',
       switchToSignUp: 'Pas encore de compte ? Créer un compte',
       switchToLogin: 'Déjà un compte ? Se connecter',
-      switchToMagic: 'Ou recevoir un lien par email (sans mot de passe)',
-      switchToPassword: 'Utiliser un mot de passe',
+      switchToMagic: 'Se connecter par lien email (sans mot de passe)',
+      switchToPassword: 'Se connecter avec un mot de passe',
       magicSent: 'Lien envoyé ! Vérifiez votre boîte mail et ouvrez le lien sur cet appareil.',
       confirmEmailSent:
         'Compte créé ! Vérifiez votre email pour confirmer votre adresse, puis connectez-vous.',
@@ -324,8 +324,8 @@ export const UI_TEXT = {
       submitMagic: 'Send sign-in link',
       switchToSignUp: 'New here? Create an account',
       switchToLogin: 'Already have an account? Sign in',
-      switchToMagic: 'Or receive an email sign-in link (passwordless)',
-      switchToPassword: 'Use email & password',
+      switchToMagic: 'Sign in with an email link (passwordless)',
+      switchToPassword: 'Sign in with email & password',
       magicSent: 'Link sent! Check your inbox and open it on this device.',
       confirmEmailSent:
         'Account created! Check your email to confirm your address, then sign in.',

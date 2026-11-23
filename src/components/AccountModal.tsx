@@ -14,7 +14,7 @@ export function AccountModal() {
   } = useTrip();
 
   const [tab, setTab] = useState<'login' | 'signup'>('login');
-  const [useMagicLink, setUseMagicLink] = useState(false);
+  const [useMagicLink, setUseMagicLink] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);

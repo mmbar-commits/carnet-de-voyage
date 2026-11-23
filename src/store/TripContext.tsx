@@ -58,6 +58,12 @@ import {
   subscribeToFamilySync,
   updateTripMemberRole,
 } from './sync';
+import {
+  fetchOpenMeteoWeather,
+  isWeatherCacheStale,
+  loadCachedOrSeasonalWeather,
+  type DayWeather,
+} from './weather';
 
 const BOOKING_CYCLE: BookingStatus[] = [
   'a_reserver',
@@ -76,6 +82,7 @@ interface TripContextValue {
   activeTab: TabId;
   selectedDayId: string;
   syncStatus: SyncStatus;
+  weatherByDay: Record<string, DayWeather>;
   setLang: (lang: Language) => void;
   setActiveTab: (tab: TabId) => void;
   setSelectedDayId: (dayId: string) => void;
@@ -160,6 +167,9 @@ export function TripProvider({ children }: { children: ReactNode }) {
     mode: isSupabaseConfigured() ? 'supabase_ready' : 'local',
     familyCode: loadFamilyCode(),
   }));
+  const [weatherByDay, setWeatherByDay] = useState<Record<string, DayWeather>>(() =>
+    loadCachedOrSeasonalWeather()
+  );
 
   // Option A — Auth & role access state
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
@@ -188,6 +198,50 @@ export function TripProvider({ children }: { children: ReactNode }) {
       setActiveTab('planning');
     }
   }, [canViewBudget, activeTab]);
+
+  // Hybrid Open-Meteo weather: refresh silently on mount, visibilitychange & online when stale
+  useEffect(() => {
+    let cancelled = false;
+    let inFlight = false;
+    let activeController: AbortController | null = null;
+
+    const refreshWeather = () => {
+      if (cancelled || inFlight || !isWeatherCacheStale()) return;
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+
+      inFlight = true;
+      activeController = new AbortController();
+      void fetchOpenMeteoWeather(activeController.signal)
+        .then((next) => {
+          if (!cancelled && next) {
+            setWeatherByDay(next);
+          }
+        })
+        .finally(() => {
+          inFlight = false;
+          activeController = null;
+        });
+    };
+
+    refreshWeather();
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        refreshWeather();
+      }
+    };
+    const handleOnline = () => refreshWeather();
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('online', handleOnline);
+
+    return () => {
+      cancelled = true;
+      activeController?.abort();
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('online', handleOnline);
+    };
+  }, []);
 
   // Subscribe to Supabase Auth session
   useEffect(() => {
@@ -942,6 +996,7 @@ export function TripProvider({ children }: { children: ReactNode }) {
       activeTab,
       selectedDayId,
       syncStatus,
+      weatherByDay,
       setLang,
       setActiveTab,
       setSelectedDayId,
@@ -1001,6 +1056,7 @@ export function TripProvider({ children }: { children: ReactNode }) {
       activeTab,
       selectedDayId,
       syncStatus,
+      weatherByDay,
       setLang,
       setSelectedDayId,
       navigateToDay,

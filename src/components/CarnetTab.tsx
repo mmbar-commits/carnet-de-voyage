@@ -14,6 +14,7 @@ import { useTrip } from '../store/TripContext';
 import type { DayRoute } from '../types/trip';
 import { DayRouteMap } from './DayRouteMap';
 import { DaySelector } from './DaySelector';
+import { WeatherStrip } from './WeatherBadge';
 
 function buildExternalRouteUrl(route: DayRoute): string {
   const origin = route.stops[0]?.query || 'Mayfair, London, UK';
@@ -38,12 +39,14 @@ function buildExternalRouteUrl(route: DayRoute): string {
 }
 
 export function CarnetTab() {
-  const { lang, selectedDayId, state, updateMemory, setActiveTab, canEdit } = useTrip();
+  const { lang, selectedDayId, state, updateMemory, setActiveTab, canEdit, weatherByDay } =
+    useTrip();
   const [justSaved, setJustSaved] = useState(false);
 
   const t = UI_TEXT[lang];
   const day = DAY_MAP[selectedDayId] ?? TRIP_DAYS[0];
   const dayLbl = getDayLabel(day, lang);
+  const dayWeather = weatherByDay[day.id];
   const entry = JOURNAL_CONTENT[day.id];
   const memory = state.memories[day.id];
   const memoryText = memory?.note ?? '';
@@ -96,6 +99,10 @@ export function CarnetTab() {
         <p className="font-editorial mt-1 text-[19px] font-normal italic text-[#5F7067]">
           {entry.subtitle}
         </p>
+
+        {dayWeather && (
+          <WeatherStrip weather={dayWeather} lang={lang} surface="ivory" className="mt-3.5" />
+        )}
 
         <p className="font-margin mt-4 border-l border-[#B39258] pl-3.5 text-[22px] font-normal leading-snug text-[#8F7038]">
           « {entry.marginQuote} »

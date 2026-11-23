@@ -1,3 +1,4 @@
+import type { WeatherKind } from '../store/weather';
 import type {
   ActivityTag,
   BookingStatus,
@@ -198,6 +199,22 @@ export const UI_TEXT = {
       pwaGuide:
         'Dans Chrome Android : touchez ⋮ puis Installer l’application. L’app reste 100 % accessible hors-ligne dans le métro.',
     },
+    weather: {
+      forecast: 'Prévision',
+      seasonal: 'Normales de saison',
+      seasonalShort: 'Normales',
+      rain: 'Pluie',
+      conditions: {
+        sun: 'Ensoleillé',
+        partly_cloudy: 'Éclaircies',
+        cloudy: 'Nuageux',
+        fog: 'Brouillard',
+        drizzle: 'Bruine',
+        rain: 'Pluie',
+        snow: 'Neige',
+        storm: 'Orage',
+      },
+    },
   },
   en: {
     appTitle: 'London Family Trip',
@@ -389,6 +406,22 @@ export const UI_TEXT = {
       pwaGuide:
         'In Chrome Android: tap ⋮ then Install app. Works 100% offline in the London Underground.',
     },
+    weather: {
+      forecast: 'Forecast',
+      seasonal: 'Seasonal avg',
+      seasonalShort: 'Seasonal avg',
+      rain: 'Rain',
+      conditions: {
+        sun: 'Sunny',
+        partly_cloudy: 'Partly cloudy',
+        cloudy: 'Cloudy',
+        fog: 'Fog',
+        drizzle: 'Drizzle',
+        rain: 'Rain',
+        snow: 'Snow',
+        storm: 'Storm',
+      },
+    },
   },
 } as const;
 
@@ -490,4 +523,8 @@ export function getKidRatingLabel(rating: KidCompatibility, lang: Language): str
   if (rating === 'Adapté') return 'Suited';
   if (rating === 'Calme') return 'Calm';
   return 'Top';
+}
+
+export function getWeatherConditionLabel(kind: WeatherKind, lang: Language): string {
+  return UI_TEXT[lang].weather.conditions[kind];
 }

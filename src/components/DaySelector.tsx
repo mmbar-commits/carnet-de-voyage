@@ -2,9 +2,10 @@ import { useEffect, useRef } from 'react';
 import { TRIP_DAYS } from '../data/days';
 import { getDayLabel } from '../i18n/translations';
 import { useTrip } from '../store/TripContext';
+import { WeatherIcon } from './WeatherBadge';
 
 export function DaySelector() {
-  const { lang, selectedDayId, setSelectedDayId, state, canEdit } = useTrip();
+  const { lang, selectedDayId, setSelectedDayId, state, canEdit, weatherByDay } = useTrip();
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const buttonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
@@ -37,6 +38,7 @@ export function DaySelector() {
           const daySteps = state.steps.filter((s) => s.dayId === day.id);
           const allDone = daySteps.length > 0 && daySteps.every((s) => s.done);
           const lbl = getDayLabel(day, lang);
+          const dayWeather = weatherByDay[day.id];
 
           return (
             <button
@@ -49,7 +51,7 @@ export function DaySelector() {
               aria-selected={isSelected}
               type="button"
               onClick={() => setSelectedDayId(day.id)}
-              className={`relative flex min-w-[62px] shrink-0 flex-col items-center rounded-xl border px-2 py-2 transition-all ${
+              className={`relative flex min-w-[62px] shrink-0 flex-col items-center rounded-xl border px-2 py-1.5 transition-all ${
                 isSelected
                   ? 'border-[#143B2B] bg-[#143B2B] text-[#FAF8F4]'
                   : 'border-[#ECE7DE] bg-white/80 text-[#143B2B] hover:border-[#B39258]/70'
@@ -65,7 +67,15 @@ export function DaySelector() {
               <span className="mt-0.5 text-[12.5px] font-medium tabular-nums leading-tight">
                 {lbl.dateShort}
               </span>
-              <div className="mt-1 flex h-1.5 items-center gap-1">
+              <div className="mt-1 flex h-3 items-center justify-center gap-1">
+                {dayWeather && (
+                  <WeatherIcon
+                    kind={dayWeather.kind}
+                    className={`h-3 w-3 shrink-0 stroke-[1.6] ${
+                      isSelected ? 'text-[#D7BD8A]' : 'text-[#B39258]'
+                    }`}
+                  />
+                )}
                 {day.isCritical && (
                   <span
                     className={`h-1.5 w-1.5 rounded-full ${

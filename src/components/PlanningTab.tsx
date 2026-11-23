@@ -7,6 +7,7 @@ import type { TripStep } from '../types/trip';
 import { DaySelector } from './DaySelector';
 import { StepCard } from './StepCard';
 import { StepModal } from './StepModal';
+import { WeatherStrip } from './WeatherBadge';
 
 export function PlanningTab() {
   const {
@@ -15,6 +16,7 @@ export function PlanningTab() {
     selectedDayId,
     setActiveTab,
     canEdit,
+    weatherByDay,
     toggleStepDone,
     cycleStepBookingStatus,
     addStep,
@@ -30,6 +32,7 @@ export function PlanningTab() {
   const t = UI_TEXT[lang];
   const day = DAY_MAP[selectedDayId] ?? TRIP_DAYS[0];
   const dayLbl = getDayLabel(day, lang);
+  const dayWeather = weatherByDay[day.id];
 
   const daySteps = useMemo(
     () =>
@@ -64,6 +67,10 @@ export function PlanningTab() {
           {dayLbl.dateLong}
         </h2>
         <p className="mt-1 text-[13.5px] font-light text-[#5F7067]">{day.title}</p>
+
+        {dayWeather && (
+          <WeatherStrip weather={dayWeather} lang={lang} surface="white" className="mt-3" />
+        )}
 
         {daySteps.length > 0 && (
           <div className="mt-3.5 flex items-center gap-3">

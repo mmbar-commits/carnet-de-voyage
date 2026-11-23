@@ -164,6 +164,24 @@ export const UI_TEXT = {
         'Connectez-vous pour gérer qui administre ce voyage (Admin), peut le modifier (Éditeur) ou seulement le consulter (Lecture seule).',
       myAccountDescSignedOut:
         'Connectez-vous pour retrouver vos voyages et synchroniser votre compte sur tous vos appareils.',
+      forgotPasswordLink: 'Mot de passe oublié ?',
+      resetPasswordTitle: 'Réinitialiser le mot de passe',
+      resetPasswordDesc:
+        'Saisissez votre adresse email pour recevoir un lien de réinitialisation.',
+      submitResetPassword: 'Envoyer le lien de réinitialisation',
+      resetPasswordSent:
+        'Lien de réinitialisation envoyé ! Vérifiez votre boîte mail pour choisir un nouveau mot de passe.',
+      backToLogin: 'Retour à la connexion',
+      newPasswordEyebrow: 'Sécurité du compte',
+      newPasswordTitle: 'Nouveau mot de passe',
+      newPasswordDesc:
+        'Choisissez un nouveau mot de passe pour votre compte Carnet de Voyage.',
+      newPasswordLabel: 'Nouveau mot de passe (6 car. min.)',
+      confirmPasswordLabel: 'Confirmer le mot de passe',
+      passwordMismatch: 'Les deux mots de passe ne correspondent pas.',
+      passwordTooShort: 'Le mot de passe doit contenir au moins 6 caractères.',
+      saveNewPassword: 'Enregistrer le mot de passe',
+      passwordUpdated: 'Mot de passe mis à jour !',
     },
     infos: {
       prepEyebrow: 'Pratique · Mayfair W1J 7SU',
@@ -480,6 +498,24 @@ export const UI_TEXT = {
         'Sign in to manage who administers this trip (Admin), can edit it (Editor) or view it in read-only mode (Read-only).',
       myAccountDescSignedOut:
         'Sign in to access your trips and sync your account across all your devices.',
+      forgotPasswordLink: 'Forgot password?',
+      resetPasswordTitle: 'Reset password',
+      resetPasswordDesc:
+        'Enter your email address to receive a password reset link.',
+      submitResetPassword: 'Send reset link',
+      resetPasswordSent:
+        'Reset link sent! Check your inbox to choose a new password.',
+      backToLogin: 'Back to sign in',
+      newPasswordEyebrow: 'Account security',
+      newPasswordTitle: 'Set a new password',
+      newPasswordDesc:
+        'Choose a new password for your Carnet de Voyage account.',
+      newPasswordLabel: 'New password (6+ chars)',
+      confirmPasswordLabel: 'Confirm password',
+      passwordMismatch: 'Passwords do not match.',
+      passwordTooShort: 'Password must be at least 6 characters.',
+      saveNewPassword: 'Save new password',
+      passwordUpdated: 'Password updated!',
     },
     infos: {
       prepEyebrow: 'Practical · Mayfair W1J 7SU',

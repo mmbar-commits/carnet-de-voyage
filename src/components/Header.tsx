@@ -15,7 +15,6 @@ export function Header() {
   const {
     state,
     lang,
-    setLang,
     syncStatus,
     setActiveTab,
     authUser,
@@ -86,30 +85,6 @@ export function Header() {
         </button>
 
         <div className="flex shrink-0 items-center gap-0.5">
-          {/* Global FR / EN toggle */}
-          <div
-            role="group"
-            aria-label="Language"
-            className="inline-flex rounded-full border border-[#ECE7DE] bg-white p-0.5"
-          >
-            {(['fr', 'en'] as const).map((code) => (
-              <button
-                key={code}
-                id={`lang-toggle-${code}`}
-                type="button"
-                aria-pressed={lang === code}
-                onClick={() => setLang(code)}
-                className={`rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wider transition ${
-                  lang === code
-                    ? 'bg-[#143B2B] font-medium text-[#FAF8F4]'
-                    : 'font-light text-[#5F7067]'
-                }`}
-              >
-                {code}
-              </button>
-            ))}
-          </div>
-
           {/* Account / Role button */}
           <button
             type="button"

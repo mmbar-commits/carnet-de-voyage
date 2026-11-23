@@ -1,4 +1,4 @@
-import type { RealtimeChannel, SupabaseClient } from '@supabase/supabase-js';
+import type { AuthChangeEvent, RealtimeChannel, SupabaseClient } from '@supabase/supabase-js';
 import {
   buildMonogram,
   buildTripSummary,
@@ -6,6 +6,7 @@ import {
 } from '../data/tripFactory';
 import type {
   AuthUser,
+  Language,
   MemberRole,
   TripAccessRole,
   TripMember,
@@ -67,15 +68,17 @@ export async function getCurrentAuthUser(): Promise<AuthUser | null> {
   return mapUser(data.session?.user);
 }
 
-export function subscribeAuthState(onChange: (user: AuthUser | null) => void): () => void {
+export function subscribeAuthState(
+  onChange: (user: AuthUser | null, event: AuthChangeEvent) => void
+): () => void {
   if (!isSupabaseConfigured()) return () => {};
   let active = true;
   let unsubscribeFn: (() => void) | null = null;
 
   void getSupabaseClient().then((client) => {
     if (!active || !client) return;
-    const { data } = client.auth.onAuthStateChange((_event, session) => {
-      onChange(mapUser(session?.user));
+    const { data } = client.auth.onAuthStateChange((event, session) => {
+      onChange(mapUser(session?.user), event);
     });
     unsubscribeFn = () => data.subscription.unsubscribe();
   });
@@ -104,7 +107,8 @@ export async function signInWithPassword(
 
 export async function signUpWithPassword(
   email: string,
-  password: string
+  password: string,
+  lang: Language
 ): Promise<{ user: AuthUser | null; needsConfirmation?: boolean; error?: string }> {
   const client = await getSupabaseClient();
   if (!client) return { user: null, error: 'Supabase non configuré.' };
@@ -117,7 +121,10 @@ export async function signUpWithPassword(
   const { data, error } = await client.auth.signUp({
     email: email.trim().toLowerCase(),
     password,
-    options: redirectTo ? { emailRedirectTo: redirectTo } : undefined,
+    options: {
+      ...(redirectTo ? { emailRedirectTo: redirectTo } : {}),
+      data: { lang },
+    },
   });
 
   if (error) return { user: null, error: error.message };
@@ -128,7 +135,8 @@ export async function signUpWithPassword(
 }
 
 export async function signInWithMagicLink(
-  email: string
+  email: string,
+  lang: Language
 ): Promise<{ ok: boolean; error?: string }> {
   const client = await getSupabaseClient();
   if (!client) return { ok: false, error: 'Supabase non configuré.' };
@@ -140,8 +148,57 @@ export async function signInWithMagicLink(
 
   const { error } = await client.auth.signInWithOtp({
     email: email.trim().toLowerCase(),
-    options: redirectTo ? { emailRedirectTo: redirectTo } : undefined,
+    options: {
+      ...(redirectTo ? { emailRedirectTo: redirectTo } : {}),
+      data: { lang },
+    },
   });
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
+export async function syncUserLanguageMetadata(lang: Language): Promise<void> {
+  try {
+    const client = await getSupabaseClient();
+    if (!client) return;
+    const { data } = await client.auth.getSession();
+    const sessionUser = data.session?.user;
+    if (!sessionUser) return;
+    if (sessionUser.user_metadata?.lang === lang) return;
+    await client.auth.updateUser({ data: { lang } });
+  } catch {
+    // Ignore metadata sync errors gracefully
+  }
+}
+
+export async function sendPasswordResetEmail(
+  email: string
+): Promise<{ ok: boolean; error?: string }> {
+  const client = await getSupabaseClient();
+  if (!client) return { ok: false, error: 'Supabase non configuré.' };
+
+  const redirectTo =
+    typeof window !== 'undefined'
+      ? `${window.location.origin}${window.location.pathname}`
+      : undefined;
+
+  const { error } = await client.auth.resetPasswordForEmail(
+    email.trim().toLowerCase(),
+    redirectTo ? { redirectTo } : undefined
+  );
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
+export async function updateUserPassword(
+  newPassword: string
+): Promise<{ ok: boolean; error?: string }> {
+  const client = await getSupabaseClient();
+  if (!client) return { ok: false, error: 'Supabase non configuré.' };
+
+  const { error } = await client.auth.updateUser({ password: newPassword });
 
   if (error) return { ok: false, error: error.message };
   return { ok: true };

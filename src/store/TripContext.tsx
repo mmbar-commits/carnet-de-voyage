@@ -75,6 +75,7 @@ import {
   pullRemoteState,
   pushRemoteState,
   resolveTripAccess,
+  sendPasswordResetEmail,
   signInWithGoogleOAuth,
   signInWithMagicLink,
   signInWithPassword,
@@ -82,7 +83,9 @@ import {
   signUpWithPassword,
   subscribeAuthState,
   subscribeToFamilySync,
+  syncUserLanguageMetadata,
   updateTripMemberRole,
+  updateUserPassword,
 } from './sync';
 import {
   fetchOpenMeteoWeather,
@@ -197,12 +200,16 @@ interface TripContextValue {
   setHideBudgetForViewers: (hide: boolean) => void;
   accountModalOpen: boolean;
   setAccountModalOpen: (open: boolean) => void;
+  passwordRecoveryMode: boolean;
+  dismissPasswordRecovery: () => void;
   signIn: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
   signUp: (
     email: string,
     password: string
   ) => Promise<{ ok: boolean; needsConfirmation?: boolean; error?: string }>;
   sendMagicLink: (email: string) => Promise<{ ok: boolean; error?: string }>;
+  sendPasswordReset: (email: string) => Promise<{ ok: boolean; error?: string }>;
+  updatePassword: (newPassword: string) => Promise<{ ok: boolean; error?: string }>;
   signInWithGoogle: () => Promise<{ ok: boolean; error?: string }>;
   signOut: () => Promise<void>;
   claimCurrentTrip: () => Promise<{ ok: boolean; error?: string }>;
@@ -362,6 +369,7 @@ export function TripProvider({ children }: { children: ReactNode }) {
   const [membersSqlReady, setMembersSqlReady] = useState<boolean>(true);
   const [previewReadOnly, setPreviewReadOnly] = useState<boolean>(false);
   const [accountModalOpen, setAccountModalOpen] = useState<boolean>(false);
+  const [passwordRecoveryMode, setPasswordRecoveryMode] = useState<boolean>(false);
 
   const isActualReadOnly = tripRole === 'viewer' || tripRole === 'none';
   const canEdit = !isActualReadOnly && !previewReadOnly;
@@ -588,6 +596,7 @@ export function TripProvider({ children }: { children: ReactNode }) {
         setPreviewReadOnly(false);
         setTripsModalOpen(false);
         setAccountModalOpen(false);
+        setPasswordRecoveryMode(false);
         setHubNotice(null);
         setWeatherByDay({});
         setSyncStatus({ mode: 'supabase_ready', familyCode: '' });
@@ -610,8 +619,13 @@ export function TripProvider({ children }: { children: ReactNode }) {
       setAuthLoading(false);
     });
 
-    const unsub = subscribeAuthState((nextUser) => {
+    const unsub = subscribeAuthState((nextUser, event) => {
       if (!mounted) return;
+      if (event === 'PASSWORD_RECOVERY') {
+        setPasswordRecoveryMode(true);
+      } else if (event === 'SIGNED_OUT') {
+        setPasswordRecoveryMode(false);
+      }
       const prevUserId = authUserRef.current?.id;
       if (!nextUser && prevUserId) {
         resetToLoggedOutState(prevUserId);
@@ -625,6 +639,12 @@ export function TripProvider({ children }: { children: ReactNode }) {
       unsub();
     };
   }, [authRequired, resetToLoggedOutState]);
+
+  // Keep Supabase user_metadata.lang synced with user's active language for all auth emails
+  useEffect(() => {
+    if (!authRequired || !authUser) return;
+    void syncUserLanguageMetadata(lang);
+  }, [authRequired, authUser?.id, lang]);
 
   const loadAuthorizedCatalog = useCallback(
     async (user: AuthUser, opts?: { silent?: boolean }) => {
@@ -1333,17 +1353,39 @@ export function TripProvider({ children }: { children: ReactNode }) {
     return { ok: true };
   }, []);
 
-  const signUp = useCallback(async (email: string, password: string) => {
-    const res = await signUpWithPassword(email, password);
-    if (res.error) return { ok: false, error: res.error };
-    if (res.user && !res.needsConfirmation) {
-      setAuthUser(res.user);
-    }
-    return { ok: true, needsConfirmation: res.needsConfirmation };
+  const signUp = useCallback(
+    async (email: string, password: string) => {
+      const res = await signUpWithPassword(email, password, lang);
+      if (res.error) return { ok: false, error: res.error };
+      if (res.user && !res.needsConfirmation) {
+        setAuthUser(res.user);
+      }
+      return { ok: true, needsConfirmation: res.needsConfirmation };
+    },
+    [lang]
+  );
+
+  const sendMagicLink = useCallback(
+    async (email: string) => {
+      return signInWithMagicLink(email, lang);
+    },
+    [lang]
+  );
+
+  const sendPasswordReset = useCallback(async (email: string) => {
+    return sendPasswordResetEmail(email);
   }, []);
 
-  const sendMagicLink = useCallback(async (email: string) => {
-    return signInWithMagicLink(email);
+  const updatePassword = useCallback(async (newPassword: string) => {
+    const res = await updateUserPassword(newPassword);
+    if (res.ok) {
+      setPasswordRecoveryMode(false);
+    }
+    return res;
+  }, []);
+
+  const dismissPasswordRecovery = useCallback(() => {
+    setPasswordRecoveryMode(false);
   }, []);
 
   const signInWithGoogle = useCallback(async () => {
@@ -2014,9 +2056,13 @@ export function TripProvider({ children }: { children: ReactNode }) {
       setHideBudgetForViewers,
       accountModalOpen,
       setAccountModalOpen,
+      passwordRecoveryMode,
+      dismissPasswordRecovery,
       signIn,
       signUp,
       sendMagicLink,
+      sendPasswordReset,
+      updatePassword,
       signInWithGoogle,
       signOut,
       claimCurrentTrip,
@@ -2094,9 +2140,13 @@ export function TripProvider({ children }: { children: ReactNode }) {
       previewReadOnly,
       setHideBudgetForViewers,
       accountModalOpen,
+      passwordRecoveryMode,
+      dismissPasswordRecovery,
       signIn,
       signUp,
       sendMagicLink,
+      sendPasswordReset,
+      updatePassword,
       signInWithGoogle,
       signOut,
       claimCurrentTrip,
